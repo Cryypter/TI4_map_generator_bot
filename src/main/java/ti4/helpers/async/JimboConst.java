@@ -1,6 +1,7 @@
 package ti4.helpers.async;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -11,12 +12,13 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import org.apache.commons.lang3.StringUtils;
-
-import ti4.generator.TileHelper;
+import ti4.image.TileHelper;
 import ti4.model.Source.ComponentSource;
 import ti4.model.TileModel;
+import ti4.model.TileModel.TileBack;
 
 // Jazz's Interactive Map Builder
 public class JimboConst {
@@ -66,24 +68,24 @@ public class JimboConst {
         candidates.addAll(List.of("output", "outside", "oval", "ovation", "overgrowth", "overhaul", "override", "overseer", "overture", "owl", "oxymoron", "oxytocin", "oyster", "ozone", "omega", "Ogdun", "Oy-Oy-Oy"));
         candidates.addAll(List.of("o-word", "o-backronym"));
         Collections.shuffle(candidates);
-        return StringUtils.capitalize(candidates.get(0));
+        return StringUtils.capitalize(candidates.getFirst());
     }
 
     public static void setupTileStuff() {
         if (blueTiles != null) return;
 
         Function<TileModel, Integer> sourceOrder = t -> t.getSource().ordinal();
-        Comparator<TileModel> comp = Comparator.comparing(sourceOrder).thenComparing(tile -> tile.getAlias());
+        Comparator<TileModel> comp = Comparator.comparing(sourceOrder).thenComparing(TileModel::getAlias);
         // sort by source, then by alias
-        List<TileModel> allTilesSorted = TileHelper.getAllTiles().values().stream().sorted(comp).toList();
+        List<TileModel> allTilesSorted = TileHelper.getAllTileModels().stream().sorted(comp).toList();
 
-        blueTiles = allTilesSorted.stream().filter(t -> "0b".equals(t.getAlias()) || "blue".equals(t.getTileBack())).toList();
-        redTiles = allTilesSorted.stream().filter(t -> "0r".equals(t.getAlias()) || "red".equals(t.getTileBack())).toList();
-        greenTiles = allTilesSorted.stream().filter(t -> "0g".equals(t.getAlias()) || "green".equals(t.getTileBack())).toList();
-        hyperlaneTiles = allTilesSorted.stream().filter(t -> t.getName() != null && t.getName().toLowerCase().equals("hyperlane")).toList();
+        blueTiles = allTilesSorted.stream().filter(t -> "0b".equals(t.getAlias()) || TileBack.BLUE.equals(t.getTileBack())).toList();
+        redTiles = allTilesSorted.stream().filter(t -> "0r".equals(t.getAlias()) || TileBack.RED.equals(t.getTileBack())).toList();
+        greenTiles = allTilesSorted.stream().filter(t -> "0g".equals(t.getAlias()) || TileBack.GREEN.equals(t.getTileBack())).toList();
+        hyperlaneTiles = allTilesSorted.stream().filter(t -> t.getName() != null && t.getName().equalsIgnoreCase("hyperlane")).toList();
         draftTiles = allTilesSorted.stream().filter(TileHelper::isDraftTile).toList();
         otherTiles = new ArrayList<>();
-        List<TileModel> ignore = List.of(blueTiles, redTiles, greenTiles, hyperlaneTiles, draftTiles).stream().flatMap(t -> t.stream()).toList();
+        List<TileModel> ignore = Stream.of(blueTiles, redTiles, greenTiles, hyperlaneTiles, draftTiles).flatMap(Collection::stream).toList();
         allTilesSorted.stream().filter(t -> !ignore.contains(t))
             .filter(t -> t.getSource() == ComponentSource.fow)
             .forEach(otherTiles::add);
@@ -109,7 +111,6 @@ public class JimboConst {
 
             String rotationStr = hl.getId().replace(baseTile, "");
             int rotation = switch (rotationStr) {
-                case "", "0" -> 0;
                 case "1", "60" -> 1;
                 case "2", "120" -> 2;
                 case "3", "180" -> 3;
@@ -155,7 +156,7 @@ public class JimboConst {
         for (TileModel tile : draftTiles) {
             String color = tile.getId().replaceAll("(blank|\\d+)$", "");
             String indexStr = tile.getId().replace(color, "");
-            int index = 0;
+            int index;
             switch (indexStr) {
                 case "blank" -> index = -1;
                 default -> {

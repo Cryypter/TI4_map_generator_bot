@@ -241,14 +241,13 @@
         "alias": "ignis_aurora",
         "scIDs": [
             "pok1leadership",
-            "pok2diplomacy",
+            "ignisaurora2",
             "ignisaurora3",
             "pok4construction",
             "pok5trade",
             "pok6warfare",
             "pok7technology",
-            "ignisaurora8",
-            "ignisaurora9"
+            "pok8imperial"
         ],
         "description": "Strategy Cards for Baldrick's Ignis Aurora expansion",
         "source": "ignis_aurora"
@@ -363,5 +362,22 @@
         ],
         "description": "Strategy cards for Voices of the Council",
         "source": "voice_of_the_council"
+    },
+    {
+        "name": "RiftSet Strategy Cards",
+        "alias": "riftset",
+        "scIDs": [
+            "pok1leadership",
+            "pok2diplomacy",
+            "pok3politics",
+            "pok4construction",
+            "pok5trade",
+            "pok6warfare",
+            "pok7technology",
+            "pok8imperial",
+            "riftset_9"
+        ],
+        "description": "Strategy cards for RiftSetMode",
+        "source": "riftset"
     }
 ]

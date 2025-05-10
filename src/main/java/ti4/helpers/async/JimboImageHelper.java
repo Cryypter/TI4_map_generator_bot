@@ -1,20 +1,21 @@
 package ti4.helpers.async;
 
-import java.awt.Graphics2D;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 
 import net.dv8tion.jda.api.utils.FileUpload;
-import ti4.generator.MapGenerator;
-import ti4.generator.MapGenerator.HorizontalAlign;
-import ti4.generator.MapGenerator.VerticalAlign;
-import ti4.generator.Mapper;
-import ti4.helpers.ImageHelper;
 import ti4.helpers.Storage;
+import ti4.image.DrawingUtil;
+import ti4.image.ImageHelper;
+import ti4.image.MapGenerator.HorizontalAlign;
+import ti4.image.MapGenerator.VerticalAlign;
+import ti4.image.Mapper;
 import ti4.model.BorderAnomalyModel.BorderAnomalyType;
 import ti4.model.TileModel;
+import ti4.service.image.FileUploadService;
 
 // Jazz's Interactive Map Builder
 public class JimboImageHelper {
@@ -44,15 +45,15 @@ public class JimboImageHelper {
             BufferedImage img = ImageHelper.square(ImageHelper.read(getImgPath.apply(model)));
             Graphics2D g2 = img.createGraphics();
             g2.setFont(Storage.getFont32());
-            MapGenerator.superDrawString(g2, getDisplayName.apply(model), img.getWidth() / 2, 0, null, HorizontalAlign.Center, VerticalAlign.Top, null, null);
+            DrawingUtil.superDrawString(g2, getDisplayName.apply(model), img.getWidth() / 2, 0, null, HorizontalAlign.Center, VerticalAlign.Top, null, null);
             images.add(img);
         }
         return layoutImagesAndUpload(images);
     }
 
     private static FileUpload layoutImagesAndUpload(List<BufferedImage> images) {
-        if (images.size() == 0) return null;
-        int size = images.stream().map(i -> i.getWidth()).max((a, b) -> a > b ? a : b).orElse(600);
+        if (images.isEmpty()) return null;
+        int size = images.stream().map(BufferedImage::getWidth).max((a, b) -> a > b ? a : b).orElse(600);
         int n = 5;
         int m = (images.size() + n - 1) / n;
         int i = 0;
@@ -65,6 +66,6 @@ public class JimboImageHelper {
             g2.drawImage(img, x * size + xoff, y * size, null);
             i++;
         }
-        return MapGenerator.uploadToDiscord(newImage, 0.4f, "jimboStuff");
+        return FileUploadService.createFileUpload(newImage, "jimboStuff");
     }
 }

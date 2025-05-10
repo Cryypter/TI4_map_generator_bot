@@ -12,16 +12,16 @@ import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import software.amazon.awssdk.utils.StringUtils;
 import ti4.buttons.Buttons;
-import ti4.commands.map.AddTile;
-import ti4.generator.PositionMapper;
-import ti4.generator.TileHelper;
 import ti4.helpers.ButtonHelper;
 import ti4.helpers.RegexHelper;
+import ti4.image.PositionMapper;
+import ti4.image.TileHelper;
 import ti4.listeners.annotations.ButtonHandler;
 import ti4.map.Game;
 import ti4.map.Tile;
 import ti4.message.MessageHelper;
 import ti4.model.TileModel;
+import ti4.service.map.AddTileService;
 
 // Jazz's Interactive Map Builder
 public class JimboHandlers {
@@ -40,7 +40,7 @@ public class JimboHandlers {
     @ButtonHandler(JimboConst.metaAction)
     private static void menu(GenericInteractionCreateEvent event, MessageChannel channel, Game game, String buttonID) {
         String message = "__Welcome to **\"JIMBO\"**, Jazz's Interactive Map Building " + JimboConst.o() + "!!!__";
-        String menu = null;
+        String menu;
         if (buttonID == null) buttonID = JimboConst.mainPage;
         if (buttonID.startsWith(JimboConst.tileAction)) {
             menu = JimboConst.tileAction;
@@ -63,7 +63,7 @@ public class JimboHandlers {
         }
 
         List<Button> buttons = JimboButtons.getMenuButtons(menu);
-        if (event != null && event instanceof ButtonInteractionEvent bevent) {
+        if (event instanceof ButtonInteractionEvent bevent) {
             MessageHelper.editMessageWithButtons(bevent, message, buttons);
         } else { // Post for the first time
             MessageHelper.sendMessageToChannelWithButtons(channel, message, buttons);
@@ -106,44 +106,54 @@ public class JimboHandlers {
         String regexPt1 = JimboConst.tileAdd + "_(?<type>(green|blue|red|hyperlane|draft|other))" + rotationAndPage;
         String regexPt2 = JimboConst.tileAdd + "_" + RegexHelper.tileIDRegex();
         String regexPt3 = regexPt2 + "_ring" + RegexHelper.oneOf(List.of(RegexHelper.intRegex("ring"), "corners"));
-        String regexPt4 = regexPt2 + "_tile" + RegexHelper.posRegex();
+        String regexPt4 = regexPt3 + "_" + RegexHelper.pageRegex();
+        String regexPt5 = regexPt3 + "_pos" + RegexHelper.posRegex();
 
         if ((matcher = Pattern.compile(regexPt1).matcher(buttonID)).matches()) {
             String msg = "Choose a tile that you want to place on the map:";
             String type = matcher.group("type");
-            System.out.println("JIMBOta - " + buttonID);
 
-            Function<TileModel, Button> toButton = tile -> JimboButtons.tileToButton(tile, JimboConst.tileAdd + "_");
+            Function<TileModel, Button> toButton = tile -> JimboButtons.tileToButton(tile, JimboConst.tileAdd);
             int rotation = matcher.group("index") != null ? Integer.parseInt(matcher.group("index")) : 0;
             List<Button> bonusButtons = new ArrayList<>(List.of(JimboButtons.MAIN_PAGE));
-            System.out.println("JIMBOta - rot=" + rotation);
 
             bonusButtons.addAll(getRotateTileButtons(type, matcher.group("page"), rotation));
             List<TileModel> tiles = getTilesForType(type, rotation, 0);
-            System.out.println("JIMBOta - tiles=" + tiles.size());
 
             JimboButtons.jimboPagination(event, msg, tiles, toButton, JimboImageHelper::tilesImage, bonusButtons, 10, buttonID);
 
         } else if ((matcher = Pattern.compile(regexPt2).matcher(buttonID)).matches()) {
-            TileModel model = TileHelper.getTile(matcher.group("tileID"));
+            TileModel model = TileHelper.getTileById(matcher.group("tileID"));
             String msg = "Choose a ring to place " + model.getName() + " (" + model.getAlias() + "):";
             List<Button> goBack = new ArrayList<>(List.of(JimboButtons.MAIN_PAGE, Buttons.gray(JimboConst.tileAdd, "Pick a different tile")));
             pickRing(event, null, msg, buttonID, goBack);
 
         } else if ((matcher = Pattern.compile(regexPt3).matcher(buttonID)).matches()) {
-            TileModel model = TileHelper.getTile(matcher.group("tileID"));
+            TileModel model = TileHelper.getTileById(matcher.group("tileID"));
             String msg = "Choose a location to place " + model.getName() + " (" + model.getAlias() + "): \n> - Any existing tile will be overwritten";
             List<Button> bonus = new ArrayList<>(List.of(JimboButtons.MAIN_PAGE));
-            bonus.add(Buttons.gray(JimboConst.tileAdd, "Pick a different tile"));
             bonus.add(Buttons.gray(JimboConst.tileAdd + "_" + model.getAlias(), "Pick a different ring"));
+            bonus.add(Buttons.gray("showGameEphemeral", "Show map"));
             List<String> locations = PositionMapper.getPositionsInRing(matcher.group("ring"), null);
-            Function<String, Button> buttonator = pos -> JimboButtons.positionToButton(pos, JimboConst.tileAdd + "_" + model.getAlias(), game);
+            String buttonatorPrefix = JimboConst.tileAdd + "_" + model.getAlias() + "_ring" + matcher.group("ring");
+            Function<String, Button> buttonator = pos -> JimboButtons.positionToButton(pos, buttonatorPrefix, game);
             JimboButtons.jimboPagination(event, msg, locations, buttonator, null, bonus, 15, buttonID);
 
         } else if ((matcher = Pattern.compile(regexPt4).matcher(buttonID)).matches()) {
-            TileModel model = TileHelper.getTile(matcher.group("tileID"));
+            TileModel model = TileHelper.getTileById(matcher.group("tileID"));
+            String msg = "Choose a location to place " + model.getName() + " (" + model.getAlias() + "): \n> - Any existing tile will be overwritten";
+            List<Button> bonus = new ArrayList<>(List.of(JimboButtons.MAIN_PAGE));
+            bonus.add(Buttons.gray(JimboConst.tileAdd + "_" + model.getAlias(), "Pick a different ring"));
+            bonus.add(Buttons.gray("showGameEphemeral", "Show map"));
+            List<String> locations = PositionMapper.getPositionsInRing(matcher.group("ring"), null);
+            String buttonatorPrefix = JimboConst.tileAdd + "_" + model.getAlias() + "_ring" + matcher.group("ring");
+            Function<String, Button> buttonator = pos -> JimboButtons.positionToButton(pos, buttonatorPrefix, game);
+            JimboButtons.jimboPagination(event, msg, locations, buttonator, null, bonus, 15, buttonID);
+
+        } else if ((matcher = Pattern.compile(regexPt5).matcher(buttonID)).matches()) {
+            TileModel model = TileHelper.getTileById(matcher.group("tileID"));
             String pos = matcher.group("pos");
-            AddTile.addTile(game, new Tile(model.getAlias(), pos));
+            AddTileService.addTile(game, new Tile(model.getAlias(), pos));
 
             String msg = model.getName() + " (" + model.getAlias() + ") has been placed in location " + pos + ".";
             MessageHelper.sendMessageToChannel(event.getMessageChannel(), msg);
@@ -163,7 +173,7 @@ public class JimboHandlers {
         String regexPt4 = regexPt3 + "_ring" + RegexHelper.oneOf(List.of(RegexHelper.intRegex("ring"), "corners"));
         String regexPt5 = regexPt3 + "_tile" + RegexHelper.posRegex("posTo");
 
-        if ((matcher = Pattern.compile(regexPt1).matcher(buttonID)).matches()) {
+        if (Pattern.compile(regexPt1).matcher(buttonID).matches()) {
             String msg = "Choose a ring to move a tile from:";
             List<Button> goBack = new ArrayList<>(List.of(JimboButtons.MAIN_PAGE));
             pickRing(event, game, msg, buttonID, goBack);
@@ -220,7 +230,7 @@ public class JimboHandlers {
         String regexPt2 = regexPt1 + "_ring" + RegexHelper.oneOf(List.of(RegexHelper.intRegex("ring"), "corners"));
         String regexPt3 = regexPt1 + "_tile" + RegexHelper.posRegex("pos");
 
-        if ((matcher = Pattern.compile(regexPt1).matcher(buttonID)).matches()) {
+        if (Pattern.compile(regexPt1).matcher(buttonID).matches()) {
             String msg = "Choose a ring to remove a tile from:";
             List<Button> goBack = new ArrayList<>(List.of(JimboButtons.MAIN_PAGE));
             pickRing(event, game, msg, JimboConst.tileRemove, goBack);
@@ -245,16 +255,6 @@ public class JimboHandlers {
         }
     }
 
-    @ButtonHandler(JimboConst.tokenAdd)
-    private static void addToken(ButtonInteractionEvent event, Game game, String buttonID) {
-
-    }
-
-    @ButtonHandler(JimboConst.tokenRemove)
-    private static void removeToken(ButtonInteractionEvent event, Game game, String buttonID) {
-
-    }
-
     // ------------------------------------------------------------------------------------------------------------------------------
     // Helpers
     // ------------------------------------------------------------------------------------------------------------------------------
@@ -266,12 +266,12 @@ public class JimboHandlers {
             String extra = ring == 0 ? " (Mecatol)" : "";
             List<String> positions = PositionMapper.getPositionsInRing(Integer.toString(ring), game);
             if (positions.size() == 1) {
-                rings.add(Buttons.green(buttonPrefix + "_tile" + positions.get(0), "Tile " + positions.get(0)));
-            } else if (positions.size() > 0) {
+                rings.add(Buttons.green(buttonPrefix + "_tile" + positions.getFirst(), "Tile " + positions.getFirst()));
+            } else if (!positions.isEmpty()) {
                 rings.add(Buttons.green(buttonPrefix + "_ring" + ring + "_page0", "Ring " + ring + extra));
             }
         }
-        if (PositionMapper.getPositionsInRing("corners", game).size() > 0) {
+        if (!PositionMapper.getPositionsInRing("corners", game).isEmpty()) {
             rings.add(Buttons.green(buttonPrefix + "_ringcorners_page0", "Corners"));
         }
         MessageHelper.editMessageWithButtons(event, msg, rings);
@@ -289,7 +289,7 @@ public class JimboHandlers {
                 output.addAll(JimboConst.hyperlanesByRotation.get(tileNum));
             }
             case "draft" -> {
-                tileNum = tileNum < -1 ? -1 : (tileNum > 12 ? 12 : tileNum);
+                tileNum = tileNum < -1 ? -1 : (Math.min(tileNum, 12));
                 output.addAll(JimboConst.draftTilesByNumber.get(tileNum));
             }
             case "other" -> output.addAll(JimboConst.otherTiles);
