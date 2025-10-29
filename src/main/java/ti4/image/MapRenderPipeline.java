@@ -5,29 +5,26 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-import javax.imageio.ImageIO;
+import javax.annotation.Nullable;
+import lombok.experimental.UtilityClass;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.utils.FileUpload;
-import org.jetbrains.annotations.Nullable;
 import ti4.executors.CircuitBreaker;
 import ti4.executors.ExecutionHistoryManager;
 import ti4.helpers.DisplayType;
 import ti4.helpers.TimedRunnable;
 import ti4.map.Game;
 import ti4.message.logging.BotLogger;
+import ti4.message.logging.LogOrigin;
 import ti4.settings.GlobalSettings;
 
+@UtilityClass
 public class MapRenderPipeline {
 
     private static final int SHUTDOWN_TIMEOUT_SECONDS = 20;
     private static final int EXECUTION_TIME_SECONDS_WARNING_THRESHOLD = 10;
     private static final ExecutorService EXECUTOR_SERVICE = Executors.newSingleThreadExecutor();
-
-    static {
-        // this seems recommended everywhere I look
-        ImageIO.setUseCache(false);
-    }
 
     private static void render(RenderEvent renderEvent) {
         if (CircuitBreaker.isOpen()) {
@@ -44,6 +41,8 @@ public class MapRenderPipeline {
                         if (renderEvent.uploadToWebsite) {
                             mapGenerator.uploadToWebsite();
                         }
+                    } catch (Exception e) {
+                        BotLogger.error(new LogOrigin(renderEvent.game), "Failed to render event.", e);
                     }
                 });
 

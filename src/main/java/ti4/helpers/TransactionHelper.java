@@ -7,16 +7,18 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
+import net.dv8tion.jda.api.components.buttons.Button;
+import net.dv8tion.jda.api.components.label.Label;
+import net.dv8tion.jda.api.components.selections.StringSelectMenu;
+import net.dv8tion.jda.api.components.textinput.TextInput;
+import net.dv8tion.jda.api.components.textinput.TextInputStyle;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.entities.emoji.Emoji;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
-import net.dv8tion.jda.api.interactions.components.text.TextInput;
-import net.dv8tion.jda.api.interactions.components.text.TextInputStyle;
-import net.dv8tion.jda.api.interactions.modals.Modal;
 import net.dv8tion.jda.api.interactions.modals.ModalMapping;
+import net.dv8tion.jda.api.modals.Modal;
 import net.dv8tion.jda.api.utils.FileUpload;
 import org.apache.commons.lang3.StringUtils;
 import ti4.buttons.Buttons;
@@ -30,6 +32,7 @@ import ti4.map.Player;
 import ti4.map.UnitHolder;
 import ti4.message.MessageHelper;
 import ti4.model.PromissoryNoteModel;
+import ti4.service.agenda.IsPlayerElectedService;
 import ti4.service.emoji.CardEmojis;
 import ti4.service.emoji.ExploreEmojis;
 import ti4.service.emoji.FactionEmojis;
@@ -70,7 +73,8 @@ public class TransactionHelper {
                 if (item.contains("sending" + sender.getFaction())
                         && item.contains("receiving" + receiver.getFaction())) {
                     String thingToTransact = item.split("_")[2];
-                    String furtherDetail = item.split("_")[3];
+                    String furtherDetail = item.replace(
+                            item.split("_")[0] + "_" + item.split("_")[1] + "_" + item.split("_")[2] + "_", "");
                     int amountToTransact = 1;
                     if ((("ACs".equalsIgnoreCase(thingToTransact) || "PNs".equalsIgnoreCase(thingToTransact))
                             && furtherDetail.contains("generic"))) {
@@ -174,7 +178,8 @@ public class TransactionHelper {
                 trans.append("> - ");
                 sendingNothing = false;
                 String thingToTransact = item.split("_")[2];
-                String furtherDetail = item.split("_")[3];
+                String furtherDetail = item.replace(
+                        item.split("_")[0] + "_" + item.split("_")[1] + "_" + item.split("_")[2] + "_", "");
                 int amountToTransact = 1;
                 if ("frags".equalsIgnoreCase(thingToTransact)
                         || (("PNs".equalsIgnoreCase(thingToTransact) || "ACs".equalsIgnoreCase(thingToTransact))
@@ -753,13 +758,15 @@ public class TransactionHelper {
                 event.getMessage().delete().queue();
                 String modalId = "finishDealDetails_" + other;
                 String fieldID = "details";
-                TextInput summary = TextInput.create(fieldID, "Edit deal details", TextInputStyle.PARAGRAPH)
+                TextInput summary = TextInput.create(fieldID, TextInputStyle.PARAGRAPH)
                         .setPlaceholder("Edit your deals details here.")
                         .setValue("The deal is that I ")
                         .build();
+
                 Modal modal = Modal.create(modalId, "Deal Details")
-                        .addActionRow(summary)
+                        .addComponents(Label.of("Edit deal details", summary))
                         .build();
+
                 event.replyModal(modal).queue();
                 return;
             }
@@ -771,12 +778,12 @@ public class TransactionHelper {
                 event.getMessage().delete().queue();
                 String modalId = "finishDealDetailsInvert_" + other;
                 String fieldID = "details";
-                TextInput summary = TextInput.create(fieldID, "Edit deal details", TextInputStyle.PARAGRAPH)
+                TextInput summary = TextInput.create(fieldID, TextInputStyle.PARAGRAPH)
                         .setPlaceholder("Edit your deals details here.")
                         .setValue("The deal is that you ")
                         .build();
                 Modal modal = Modal.create(modalId, "Deal Details")
-                        .addActionRow(summary)
+                        .addComponents(Label.of("Edit deal details", summary))
                         .build();
                 event.replyModal(modal).queue();
                 return;
@@ -784,6 +791,39 @@ public class TransactionHelper {
         }
         event.getMessage().delete().queue();
         MessageHelper.sendMessageToChannelWithButtons(player.getCardsInfoThread(), message, stuffToTransButtons);
+    }
+
+    // Left for future reference.
+    private static Modal buildTransactionModel(Player p1, Player p2, Game game) {
+        Modal.Builder modal = Modal.create("transactionModelFinish_" + p1.getFaction(), "Traction");
+        List<Player> players = new ArrayList<>();
+        players.add(p1);
+        players.add(p2);
+
+        for (Player player : players) {
+            Player otherPlayer = p1;
+            if (player == otherPlayer) {
+                otherPlayer = p2;
+            }
+            if (player.getTg() > 0) {
+                StringSelectMenu.Builder tgs = StringSelectMenu.create("TGs" + player.getFaction());
+                for (int tg = 1; tg < player.getTg() + 1; tg++) {
+                    tgs.addOption("" + tg, "" + tg);
+                }
+                modal.addComponents(
+                        Label.of("Trade Goods From " + player.getFactionModel().getFactionName(), tgs.build()));
+            }
+            if (player.getCommodities() > 0) {
+                StringSelectMenu.Builder comms = StringSelectMenu.create("Comms" + player.getFaction());
+                for (int comm = 1; comm < player.getCommodities() + 1; comm++) {
+                    comms.addOption("" + comm, "" + comm);
+                }
+                modal.addComponents(
+                        Label.of("Commodities From " + player.getFactionModel().getFactionName(), comms.build()));
+            }
+        }
+
+        return modal.build();
     }
 
     private static boolean resolveAgeOfCommerceTechCheck(Player owner, Player receiver, String tech, Game game) {
@@ -843,7 +883,8 @@ public class TransactionHelper {
         String item = buttonID.split("_")[1];
         String sender = buttonID.split("_")[2];
         String receiver = buttonID.split("_")[3];
-        String extraDetail = buttonID.split("_")[4];
+        String extraDetail =
+                buttonID.replace(buttonID.split("_")[0] + "_" + item + "_" + sender + "_" + receiver + "_", "");
         Player p1 = game.getPlayerFromColorOrFaction(sender);
         Player p2 = game.getPlayerFromColorOrFaction(receiver);
         if (p1 == null || p2 == null) return;
@@ -886,10 +927,12 @@ public class TransactionHelper {
                 player.addTransactionItem(itemS);
             }
         }
+        var userSettings = UserSettingsManager.get(player.getUserID());
 
         if (("tgs".equalsIgnoreCase(item) || "Comms".equalsIgnoreCase(item))
                 && p2.getDebtTokenCount(p1.getColor()) > 0
                 && !p2.hasAbility("binding_debts")
+                && userSettings.isPrefersAutoDebtClearance()
                 && !p2.hasAbility("data_recovery")) {
             int amount = Math.min(p2.getDebtTokenCount(p1.getColor()), Integer.parseInt(extraDetail));
             String clear = "sending" + receiver + "_receiving" + sender + "_ClearDebt_" + amount;
@@ -1102,11 +1145,14 @@ public class TransactionHelper {
 
                 for (String pnShortHand : p1.getPromissoryNotes().keySet()) {
                     if (p1.getPromissoryNotesInPlayArea().contains(pnShortHand)
-                            || (p2.getAbilities().contains("hubris") && pnShortHand.endsWith("an"))) {
+                            || (p2.hasAbility("hubris") && pnShortHand.endsWith("an"))) {
                         continue;
                     }
                     PromissoryNoteModel promissoryNote = Mapper.getPromissoryNote(pnShortHand);
                     Player owner = game.getPNOwner(pnShortHand);
+                    if (owner == null) {
+                        continue;
+                    }
                     Button transact;
                     if (game.isFowMode()) {
                         transact = Buttons.green(
@@ -1360,7 +1406,7 @@ public class TransactionHelper {
                 if (game.isNoSwapMode()) {
                     if (id.endsWith("sftt") && p1.getPromissoryNotesInPlayArea().contains(p2.getColor() + "_sftt")) {
                         MessageHelper.sendMessageToChannel(
-                                event.getMessageChannel(),
+                                p1.getCardsInfoThread(),
                                 p1.getRepresentation()
                                         + ", you cannot swap _Supports For The Thrones_ in this game (it has banned _Support For The Throne_ swaps).");
                         return;
@@ -1368,7 +1414,10 @@ public class TransactionHelper {
                 }
                 p1.removePromissoryNote(id);
                 p2.setPromissoryNote(id);
-                if (id.contains("dspnveld")) {
+                if (id.contains("dspnveld") && !p2.getAllianceMembers().contains(p1.getFaction())) {
+                    PromissoryNoteHelper.resolvePNPlay(id, p2, game, event);
+                }
+                if (id.contains("blackops") && !p2.getAllianceMembers().contains(p1.getFaction())) {
                     PromissoryNoteHelper.resolvePNPlay(id, p2, game, event);
                 }
                 boolean sendSftT = false;
@@ -1432,7 +1481,7 @@ public class TransactionHelper {
                 MessageHelper.sendMessageToChannelWithButtons(
                         p1.getPrivateChannel(), ident + " Use Buttons To Complete Transaction", goAgainButtons);
             }
-            MessageHelper.sendMessageToChannel(p2.getPrivateChannel(), message2);
+            MessageHelper.sendMessageToChannel(p2.getPrivateChannel(), "**🤝 Transaction:** " + message2);
         } else {
             TextChannel channel = game.getMainGameChannel();
             if ("pbd1000".equalsIgnoreCase(game.getName())) {
@@ -1454,8 +1503,13 @@ public class TransactionHelper {
         // if(game.getRealPlayers().size() > 26){
         //     return true;
         // }
+        if (IsPlayerElectedService.isPlayerElected(game, player2, "tf-censure")
+                || IsPlayerElectedService.isPlayerElected(game, player, "tf-censure")) {
+            return false;
+        }
         return player == player2
                 || !"action".equalsIgnoreCase(game.getPhaseOfGame())
+                || (player.hasSpaceStation() && player2.hasSpaceStation())
                 || game.isAgeOfCommerceMode()
                 || player.hasAbility("guild_ships")
                 || player.getPromissoryNotesInPlayArea().contains("convoys")
@@ -1504,10 +1558,13 @@ public class TransactionHelper {
                     Button button;
                     if (!game.isFowMode()) {
                         String label = player.getUserName();
-                        if (!canTheseTwoTransact(game, p, player)) {
-                            label = player.getUserName() + "(Not Neighbors)";
+                        if (p.isNeighboursWith(player)) {
+                            button = Buttons.green(finChecker + "transactWith_" + faction, label);
+                        } else if (canTheseTwoTransact(game, p, player)) {
+                            button = Buttons.blue(finChecker + "transactWith_" + faction, label);
+                        } else {
+                            button = Buttons.gray(finChecker + "transactWith_" + faction, label);
                         }
-                        button = Buttons.gray(finChecker + "transactWith_" + faction, label);
 
                         String factionEmojiString = player.getFactionEmoji();
                         button = button.withEmoji(Emoji.fromFormatted(factionEmojiString));
@@ -1555,7 +1612,11 @@ public class TransactionHelper {
             stuffToTransButtons.add(
                     Buttons.gray("newTransact_starCharts_" + p1.getFaction() + "_" + p2.getFaction(), "Star Charts"));
         }
-        if ((p1.hasAbility("arbiters") || p2.hasAbility("arbiters")) && p1.getAc() > 0) {
+        if ((p1.hasAbility("arbiters")
+                        || p2.hasAbility("arbiters")
+                        || p1.hasTech("tf-guild_ships")
+                        || p2.hasTech("tf-guild_ships"))
+                && p1.getAc() > 0) {
             stuffToTransButtons.add(
                     Buttons.green("newTransact_ACs_" + p1.getFaction() + "_" + p2.getFaction(), "Action Cards"));
         }
@@ -1604,6 +1665,10 @@ public class TransactionHelper {
         }
 
         if (player == p1) {
+            if (!getReturnPNsInPlayAreaButtons(game, p1, p2).isEmpty()) {
+                stuffToTransButtons.add(Buttons.gray(
+                        "startReturnPNInPlayArea_" + p2.getFaction(), "Return a Play Area Promissory Note"));
+            }
             stuffToTransButtons.add(Buttons.gray("resetOffer_" + p2.getFaction(), "Reset Offer"));
             stuffToTransButtons.add(
                     Buttons.red("getNewTransaction_" + p2.getFaction() + "_" + p1.getFaction(), "Ask for Stuff"));
@@ -1621,6 +1686,50 @@ public class TransactionHelper {
     @ButtonHandler("send_")
     public static void send(ButtonInteractionEvent event, Player player, String buttonID, Game game) {
         resolveSpecificTransButtonPress(game, player, buttonID, event, true);
+        ButtonHelper.deleteMessage(event);
+    }
+
+    public static List<Button> getReturnPNsInPlayAreaButtons(Game game, Player p1, Player p2) {
+        List<Button> buttons = new ArrayList<>();
+        for (String pn : p1.getPromissoryNotesInPlayArea()) {
+            if (p2 == game.getPNOwner(pn) && Mapper.getPromissoryNote(pn) != null) {
+                buttons.add(Buttons.gray(
+                        "returnPNInPlayArea_" + pn,
+                        "Return " + Mapper.getPromissoryNote(pn).getName()));
+            }
+        }
+
+        return buttons;
+    }
+
+    @ButtonHandler("startReturnPNInPlayArea_")
+    public static void startReturnPNInPlayArea(ButtonInteractionEvent event, Player p1, String buttonID, Game game) {
+        String message = "## Warning, this is only to be done if a bug or mistake occurred. You cannot normally"
+                + " return play area promissory notes via a transaction.";
+        Player p2 = game.getPlayerFromColorOrFaction(buttonID.split("_")[1]);
+        List<Button> buttons = getReturnPNsInPlayAreaButtons(game, p1, p2);
+        MessageHelper.sendMessageToChannel(p1.getCardsInfoThread(), message, buttons);
+        ButtonHelper.deleteMessage(event);
+    }
+
+    @ButtonHandler("returnPNInPlayArea_")
+    public static void returnPNInPlayArea(ButtonInteractionEvent event, Player p1, String buttonID, Game game) {
+        String id = buttonID.replace("returnPNInPlayArea_", "");
+
+        Player p2 = game.getPNOwner(id);
+        if (p2 != null) {
+            p1.removePromissoryNote(id);
+            p2.setPromissoryNote(id);
+            PromissoryNoteHelper.sendPromissoryNoteInfo(game, p1, false);
+            PromissoryNoteHelper.sendPromissoryNoteInfo(game, p2, false);
+            String message2 = p1.getRepresentation() + " returned _"
+                    + Mapper.getPromissoryNote(id).getName() + "_ from their play area to " + p2.getRepresentation()
+                    + ".";
+            MessageHelper.sendMessageToChannel(p2.getCorrectChannel(), message2);
+            if (game.isFowMode()) {
+                MessageHelper.sendMessageToChannel(p1.getCorrectChannel(), message2);
+            }
+        }
         ButtonHelper.deleteMessage(event);
     }
 
@@ -1651,7 +1760,11 @@ public class TransactionHelper {
         if (ButtonHelper.getNumberOfStarCharts(p1) > 0) {
             stuffToTransButtons.add(Buttons.gray(finChecker + "transact_starCharts_" + p2.getFaction(), "Star Charts"));
         }
-        if ((p1.hasAbility("arbiters") || p2.hasAbility("arbiters")) && p1.getAc() > 0) {
+        if ((p1.hasAbility("arbiters")
+                        || p2.hasAbility("arbiters")
+                        || p1.hasTech("tf-guild_ships")
+                        || p2.hasTech("tf-guild_ships"))
+                && p1.getAc() > 0) {
             stuffToTransButtons.add(Buttons.green(finChecker + "transact_ACs_" + p2.getFaction(), "Action Cards"));
         }
         if (p1.getPnCount() > 0) {

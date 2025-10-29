@@ -3,14 +3,15 @@ package ti4.commands.player;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.StringTokenizer;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Role;
+import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import ti4.buttons.Buttons;
 import ti4.commands.GameStateSubcommand;
 import ti4.helpers.AliasHandler;
@@ -21,6 +22,7 @@ import ti4.helpers.Helper;
 import ti4.map.Game;
 import ti4.map.Player;
 import ti4.message.MessageHelper;
+import ti4.service.SusSlashCommandService;
 import ti4.service.emoji.CardEmojis;
 import ti4.service.leader.CommanderUnlockCheckService;
 import ti4.service.player.PlayerStatsService;
@@ -59,6 +61,7 @@ class Stats extends GameStateSubcommand {
                         "Flip a strategy card's played status; enter the initiative number"))
                 .addOptions(new OptionData(OptionType.STRING, Constants.PASSED, "Set whether player has passed y/n"))
                 .addOptions(new OptionData(OptionType.STRING, Constants.SPEAKER, "Set whether player is speaker y/n"))
+                .addOptions(new OptionData(OptionType.STRING, Constants.TYRANT, "Set whether player is tyrant y/n"))
                 .addOptions(new OptionData(OptionType.BOOLEAN, Constants.DUMMY, "Player is a placeholder"))
                 .addOptions(new OptionData(OptionType.BOOLEAN, Constants.NPC, "Player is an NPC"))
                 .addOptions(new OptionData(OptionType.USER, Constants.PLAYER, "Player for which you set stats"))
@@ -229,6 +232,18 @@ class Stats extends GameStateSubcommand {
             MessageHelper.sendMessageToEventChannel(event, message.toString());
         }
 
+        OptionMapping optionTyrant = event.getOption(Constants.TYRANT);
+        if (optionTyrant != null) {
+            StringBuilder message = new StringBuilder(getGeneralMessage(optionTyrant));
+            String value = optionTyrant.getAsString().toLowerCase();
+            if ("y".equals(value) || "yes".equals(value)) {
+                game.setTyrantUserID(player.getUserID());
+            } else {
+                message.append(", which is not a valid input. Please use one of: y/yes");
+            }
+            MessageHelper.sendMessageToEventChannel(event, message.toString());
+        }
+
         OptionMapping optionPassed = event.getOption(Constants.PASSED);
         if (optionPassed != null) {
             StringBuilder message = new StringBuilder(getGeneralMessage(optionPassed));
@@ -301,6 +316,13 @@ class Stats extends GameStateSubcommand {
                     Helper.addMapPlayerPermissionsToGameChannels(event.getGuild(), game.getName());
                 }
 
+                var userSettings = UserSettingsManager.get(player.getUserID());
+
+                userSettings.setTrackRecord(
+                        userSettings.getTrackRecord() + " was set as an NPC in " + game.getName() + ". ");
+
+                UserSettingsManager.save(userSettings);
+
                 Guild guild = event.getGuild();
                 Member removedMember = guild.getMemberById(player.getUserID());
                 List<Role> roles = guild.getRolesByName(game.getName(), true);
@@ -310,11 +332,14 @@ class Stats extends GameStateSubcommand {
                 List<Button> buttons = new ArrayList<>();
                 buttons.add(Buttons.gray(
                         player.getFinsFactionCheckerPrefix() + "removePlayerPermissions_" + player.getFaction(),
-                        "Remove View Permissions " + player.getDisplayName()));
+                        "Remove View Permissions For " + player.getUserName()));
                 buttons.add(Buttons.red("deleteButtons", "Stay in channels"));
                 String msg = player.getRepresentation()
                         + " do you want to remove yourself from the game channels? If so, press this button.";
                 MessageHelper.sendMessageToChannel(player.getCorrectChannel(), msg, buttons);
+                if (event.getChannel() instanceof TextChannel channel) {
+                    SusSlashCommandService.reportSusSlashCommand(event, channel.getJumpUrl());
+                }
             }
         }
     }

@@ -7,8 +7,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import lombok.experimental.UtilityClass;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import ti4.buttons.Buttons;
 import ti4.helpers.AgendaHelper;
 import ti4.map.Game;
@@ -89,7 +89,7 @@ public class AutoPingCron {
     }
 
     private static void autoPingGames() {
-        BotLogger.info("Running AutoPingCron.");
+        BotLogger.logCron("Running AutoPingCron.");
 
         removeEndedGamesFromAutoPingMetadata();
 
@@ -99,7 +99,7 @@ public class AutoPingCron {
                 .filter(game -> game.getAutoPingStatus() && !game.isTemporaryPingDisable())
                 .forEach(AutoPingCron::autoPingGame);
 
-        BotLogger.info("Finished AutoPingCron.");
+        BotLogger.logCron("Finished AutoPingCron.");
     }
 
     private static void removeEndedGamesFromAutoPingMetadata() {

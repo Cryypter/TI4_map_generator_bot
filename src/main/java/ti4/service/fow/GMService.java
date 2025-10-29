@@ -6,15 +6,16 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Consumer;
+import net.dv8tion.jda.api.components.buttons.Button;
+import net.dv8tion.jda.api.components.label.Label;
+import net.dv8tion.jda.api.components.textinput.TextInput;
+import net.dv8tion.jda.api.components.textinput.TextInputStyle;
 import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
-import net.dv8tion.jda.api.interactions.components.text.TextInput;
-import net.dv8tion.jda.api.interactions.components.text.TextInputStyle;
-import net.dv8tion.jda.api.interactions.modals.Modal;
+import net.dv8tion.jda.api.modals.Modal;
 import org.apache.commons.lang3.StringUtils;
 import ti4.buttons.Buttons;
 import ti4.helpers.AgendaHelper;
@@ -30,6 +31,7 @@ import ti4.map.Game;
 import ti4.map.Player;
 import ti4.message.MessageHelper;
 import ti4.service.ShowGameService;
+import ti4.service.actioncard.SabotageService;
 import ti4.service.emoji.CardEmojis;
 import ti4.service.explore.ExploreService;
 import ti4.service.info.SecretObjectiveInfoService;
@@ -178,7 +180,20 @@ public class GMService {
     public static void checkPlayerHands(ButtonInteractionEvent event, String buttonID, Game game) {
         String option = buttonID.replace("gmCheckPlayerHands_", "");
         switch (option) {
-            case "sabotage" -> checkWhoHas("sabo", game, event);
+            case "sabotage" -> {
+                checkWhoHas("sabo", game, event);
+                for (Player p : game.getRealPlayers()) {
+                    if (SabotageService.couldUseWatcherMech(p, game)) {
+                        MessageHelper.sendMessageToChannel(
+                                event.getChannel(), "> " + p.getRepresentationUnfoggedNoPing() + " has Watcher mechs");
+                    }
+                    if (SabotageService.couldUseInstinctTraining(p)) {
+                        MessageHelper.sendMessageToChannel(
+                                event.getChannel(),
+                                "> " + p.getRepresentationUnfoggedNoPing() + " has Instinct Training");
+                    }
+                }
+            }
             case "deadly" -> {
                 checkWhoHas("deadly_plot", game, event);
                 checkWhoHas("bribery", game, event);
@@ -231,12 +246,12 @@ public class GMService {
 
     @ButtonHandler("gmWhoCanSee~MDL")
     public static void whoCanSeePosition(ButtonInteractionEvent event) {
-        TextInput position = TextInput.create(Constants.POSITION, "Position", TextInputStyle.SHORT)
+        TextInput position = TextInput.create(Constants.POSITION, TextInputStyle.SHORT)
                 .setPlaceholder("000")
                 .setRequiredRange(3, 4)
                 .build();
         Modal modal = Modal.create("gmWhoCanSeeResolve", "Who Can See Position")
-                .addActionRow(position)
+                .addComponents(Label.of("Position", position))
                 .build();
         event.replyModal(modal).queue();
     }
@@ -274,7 +289,7 @@ public class GMService {
     }
 
     public static void createFOWStatusSummary(Game game) {
-        if (!game.isFowMode() || !game.getFowOption(FOWOption.STATUS_SUMMARY)) return;
+        if (!game.isFowMode() || !game.getFowOption(FOWOption.STATUS_SUMMARY) || FOWPlusService.isActive(game)) return;
 
         ThreadGetter.getThreadInChannel(
                 game.getMainGameChannel(), STATUS_SUMMARY_THREAD, true, false, threadChannel -> {
@@ -291,5 +306,35 @@ public class GMService {
 
                     RelicHelper.showRemaining(threadChannel, true, game, null);
                 });
+    }
+
+    public static void addForcePassWhenButtonForFowGM(Game game, Player player, List<Button> buttons) {
+        if (!game.isFowMode()) return;
+        buttons.add(Buttons.gray("declineToQueueAWhenFowGM_" + player.getFaction(), "Force Pass as GM"));
+    }
+
+    public static void addForcePassAfterButtonForFowGM(Game game, Player player, List<Button> buttons) {
+        if (!game.isFowMode()) return;
+        buttons.add(Buttons.gray("declineToQueueAnAfterFowGM_" + player.getFaction(), "Force Pass as GM"));
+    }
+
+    @ButtonHandler("declineToQueueAWhenFowGM_")
+    public static void declineToQueueAWhenFowGM(Game game, ButtonInteractionEvent event, Player gm, String buttonID) {
+        if (!gm.isGM()) return;
+        Player player = game.getPlayerFromColorOrFaction(buttonID.replace("declineToQueueAWhenFowGM_", ""));
+        MessageHelper.sendMessageToChannel(
+                player.getCorrectChannel(),
+                player.getRepresentationUnfogged() + " GM has forced you to pass on \"when\"s.");
+        AgendaHelper.declineToQueueAWhen(game, event, player);
+    }
+
+    @ButtonHandler("declineToQueueAnAfterFowGM_")
+    public static void declineToQueueAnAfterFowGM(Game game, ButtonInteractionEvent event, Player gm, String buttonID) {
+        if (!gm.isGM()) return;
+        Player player = game.getPlayerFromColorOrFaction(buttonID.replace("declineToQueueAnAfterFowGM_", ""));
+        MessageHelper.sendMessageToChannel(
+                player.getCorrectChannel(),
+                player.getRepresentationUnfogged() + " GM has forced you to pass on \"after\"s.");
+        AgendaHelper.declineToQueueAnAfter(game, event, player);
     }
 }

@@ -1,7 +1,7 @@
 package ti4.service.tactical.postmovement;
 
 import java.util.List;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
+import net.dv8tion.jda.api.components.buttons.Button;
 import ti4.buttons.Buttons;
 import ti4.helpers.Units.UnitType;
 import ti4.service.emoji.FactionEmojis;
@@ -12,8 +12,7 @@ import ti4.service.unit.CheckUnitContainmentService;
 public final class MuaatHeroButton implements PostMovementAbilityButton {
     public boolean enabled(PostMovementButtonContext ctx) {
         return ctx.player.hasLeaderUnlocked("muaathero")
-                && !ctx.tile.isMecatol()
-                && !ctx.tile.isHomeSystem(ctx.game)
+                && ((!ctx.tile.isMecatol() && !ctx.tile.isHomeSystem(ctx.game)) || ctx.game.isWildWildGalaxyMode())
                 && CheckUnitContainmentService.getTilesContainingPlayersUnits(ctx.game, ctx.player, UnitType.Warsun)
                         .contains(ctx.tile);
     }

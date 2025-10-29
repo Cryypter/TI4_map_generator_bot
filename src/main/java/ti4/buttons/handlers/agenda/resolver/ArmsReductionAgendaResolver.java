@@ -2,8 +2,8 @@ package ti4.buttons.handlers.agenda.resolver;
 
 import java.util.ArrayList;
 import java.util.List;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import ti4.helpers.ButtonHelper;
 import ti4.helpers.ButtonHelperModifyUnits;
 import ti4.map.Game;
@@ -31,7 +31,8 @@ public class ArmsReductionAgendaResolver implements ForAgainstAgendaResolver {
 
             int excessDreadnoughts = ButtonHelper.getNumberOfUnitsOnTheBoard(game, player, "dreadnought", false) - 2;
             if (excessDreadnoughts > 0) {
-                removeButtons.addAll(ButtonHelperModifyUnits.getRemoveThisTypeOfUnitButton(player, game, "cruiser"));
+                removeButtons.addAll(
+                        ButtonHelperModifyUnits.getRemoveThisTypeOfUnitButton(player, game, "dreadnought"));
                 if (message.isEmpty()) {
                     message = player.getRepresentation() + ", please remove " + excessDreadnoughts
                             + " excess dreadnought" + (excessDreadnoughts == 1 ? "" : "s");

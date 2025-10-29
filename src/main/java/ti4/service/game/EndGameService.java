@@ -17,7 +17,6 @@ import net.dv8tion.jda.api.entities.channel.concrete.ThreadChannel;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import org.apache.commons.lang3.StringUtils;
-import ti4.AsyncTI4DiscordBot;
 import ti4.helpers.Constants;
 import ti4.helpers.DisplayType;
 import ti4.helpers.Helper;
@@ -36,11 +35,12 @@ import ti4.message.logging.BotLogger;
 import ti4.message.logging.LogOrigin;
 import ti4.service.emoji.ColorEmojis;
 import ti4.service.emoji.MiscEmojis;
-import ti4.service.statistics.game.WinningPathCacheService;
 import ti4.service.statistics.game.WinningPathComparisonService;
 import ti4.service.statistics.game.WinningPathHelper;
+import ti4.service.statistics.game.WinningPathPersistenceService;
 import ti4.service.tigl.TiglGameReport;
 import ti4.service.tigl.TiglPlayerResult;
+import ti4.spring.jda.JdaService;
 import ti4.website.UltimateStatisticsWebsiteHelper;
 
 @UtilityClass
@@ -104,10 +104,9 @@ public class EndGameService {
                 tableTalkChannel.getManager().setParent(inLimboCategory).queueAfter(15, TimeUnit.SECONDS);
                 MessageHelper.sendMessageToChannel(tableTalkChannel, moveMessage);
             }
-            if (actionsChannel != null) { // MOVE ACTIONS CHANNEL
-                actionsChannel.getManager().setParent(inLimboCategory).queueAfter(15, TimeUnit.SECONDS);
-                MessageHelper.sendMessageToChannel(actionsChannel, moveMessage);
-            }
+            // MOVE ACTIONS CHANNEL
+            actionsChannel.getManager().setParent(inLimboCategory).queueAfter(15, TimeUnit.SECONDS);
+            MessageHelper.sendMessageToChannel(actionsChannel, moveMessage);
             if (og != null && og.getTextChannels().size() < 3) {
                 og.delete().queueAfter(20, TimeUnit.SECONDS);
             }
@@ -148,18 +147,15 @@ public class EndGameService {
                 threadChannel.getManager().setArchived(true).queue();
             }
         }
-        if (actionsChannel != null) {
-            for (ThreadChannel threadChannel : actionsChannel.getThreadChannels()) {
-                if (!threadChannel.getName().contains("Cards Info")) {
-                    threadChannel.getManager().setArchived(true).queue();
-                }
+        for (ThreadChannel threadChannel : actionsChannel.getThreadChannels()) {
+            if (!threadChannel.getName().contains("Cards Info")) {
+                threadChannel.getManager().setArchived(true).queue();
             }
         }
         gameEndStuff(game, event, publish);
 
         // GET BOTHELPER LOUNGE
-        List<TextChannel> bothelperLoungeChannels =
-                AsyncTI4DiscordBot.guildPrimary.getTextChannelsByName("staff-lounge", true);
+        List<TextChannel> bothelperLoungeChannels = JdaService.guildPrimary.getTextChannelsByName("staff-lounge", true);
         TextChannel bothelperLoungeChannel =
                 !bothelperLoungeChannels.isEmpty() ? bothelperLoungeChannels.getFirst() : null;
         if (bothelperLoungeChannel != null) {
@@ -179,16 +175,14 @@ public class EndGameService {
             new RepositoryDispatchEvent("archive_game_channel", Map.of("channel", tableTalkChannel.getId()))
                     .sendEvent();
         }
-        if (actionsChannel != null) {
-            new RepositoryDispatchEvent("archive_game_channel", Map.of("channel", actionsChannel.getId())).sendEvent();
-        }
+        new RepositoryDispatchEvent("archive_game_channel", Map.of("channel", actionsChannel.getId())).sendEvent();
 
         if (rematch) {
             RematchService.secondHalfOfRematch(event, game);
         }
     }
 
-    public static void gameEndStuff(Game game, GenericInteractionCreateEvent event, boolean publish) {
+    static void gameEndStuff(Game game, GenericInteractionCreateEvent event, boolean publish) {
         String gameName = game.getName();
 
         game.setHasEnded(true);
@@ -205,11 +199,11 @@ public class EndGameService {
         MessageHelper.sendMessageToChannel(event.getMessageChannel(), "**Game: `" + gameName + "` has ended!**");
 
         writeChronicle(game, event, publish);
-        WinningPathCacheService.addGame(game);
+        WinningPathPersistenceService.addGame(game);
     }
 
     private static void writeChronicle(Game game, GenericInteractionCreateEvent event, boolean publish) {
-        String gameEndText = getGameEndText(game, event);
+        String gameEndText = getGameEndText(game);
         MessageHelper.sendMessageToChannel(event.getMessageChannel(), gameEndText);
         TextChannel summaryChannel = getGameSummaryChannel(game);
         if (!game.isFowMode()) {
@@ -310,18 +304,18 @@ public class EndGameService {
 
     private static TextChannel getGameSummaryChannel(Game game) {
         List<TextChannel> textChannels;
-        if (game.isFowMode() && AsyncTI4DiscordBot.guildFogOfWar != null) {
-            ThreadArchiveHelper.checkThreadLimitAndArchive(AsyncTI4DiscordBot.guildFogOfWar);
-            textChannels = AsyncTI4DiscordBot.guildFogOfWar.getTextChannelsByName("fow-war-stories", true);
+        if (game.isFowMode() && JdaService.guildFogOfWar != null) {
+            ThreadArchiveHelper.checkThreadLimitAndArchive(JdaService.guildFogOfWar);
+            textChannels = JdaService.guildFogOfWar.getTextChannelsByName("fow-war-stories", true);
         } else {
-            ThreadArchiveHelper.checkThreadLimitAndArchive(AsyncTI4DiscordBot.guildPrimary);
-            textChannels = AsyncTI4DiscordBot.guildPrimary.getTextChannelsByName("the-pbd-chronicles", true);
+            ThreadArchiveHelper.checkThreadLimitAndArchive(JdaService.guildPrimary);
+            textChannels = JdaService.guildPrimary.getTextChannelsByName("the-pbd-chronicles", true);
         }
         return textChannels.isEmpty() ? null : textChannels.getFirst();
     }
 
-    private static void appendUserName(StringBuilder sb, Player player, GenericInteractionCreateEvent event) {
-        Optional<User> user = Optional.ofNullable(event.getJDA().getUserById(player.getUserID()));
+    private static void appendUserName(StringBuilder sb, Player player) {
+        Optional<User> user = Optional.ofNullable(JdaService.jda.getUserById(player.getUserID()));
         if (user.isPresent()) {
             sb.append(user.get().getAsMention());
         } else {
@@ -329,7 +323,7 @@ public class EndGameService {
         }
     }
 
-    private static String getGameEndText(Game game, GenericInteractionCreateEvent event) {
+    private static String getGameEndText(Game game) {
         StringBuilder sb = new StringBuilder();
         sb.append("**Game: __").append(game.getName()).append("__**");
         if (!game.getCustomName().isEmpty()) {
@@ -348,7 +342,7 @@ public class EndGameService {
             sb.append("> `").append(index).append(".` ");
             sb.append(player.getFactionEmoji());
             sb.append(ColorEmojis.getColorEmojiWithName(player.getColor())).append(" ");
-            appendUserName(sb, player, event);
+            appendUserName(sb, player);
             sb.append(" - *");
             if (player.isEliminated()) {
                 sb.append("ELIMINATED*");
@@ -369,7 +363,7 @@ public class EndGameService {
         if (game.isFowMode()) {
             sb.append("**GM:** ");
             for (Player gm : game.getPlayersWithGMRole()) {
-                appendUserName(sb, gm, event);
+                appendUserName(sb, gm);
                 sb.append(" ");
             }
             sb.append("\n");

@@ -5,12 +5,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import lombok.experimental.UtilityClass;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import ti4.buttons.Buttons;
 import ti4.helpers.ActionCardHelper;
+import ti4.helpers.BreakthroughHelper;
 import ti4.helpers.ButtonHelper;
 import ti4.helpers.ButtonHelperAbilities;
 import ti4.helpers.ButtonHelperAgents;
@@ -32,6 +33,7 @@ public class ScorePublicObjectiveService {
             GenericInteractionCreateEvent event, MessageChannel channel, Game game, Player player, int poID) {
         String both = getNameNEMoji(game, poID);
         String poName = both.split("_")[0];
+        channel = player.getCorrectChannel();
         String id = "";
         Map<String, Integer> revealedPublicObjectives = game.getRevealedPublicObjectives();
         for (Map.Entry<String, Integer> po : revealedPublicObjectives.entrySet()) {
@@ -115,7 +117,7 @@ public class ScorePublicObjectiveService {
             FoWHelper.pingAllPlayersWithFullStats(game, event, player, message);
         }
         HeroUnlockCheckService.checkIfHeroUnlocked(game, player);
-        if (player.hasAbility("dark_purpose")) {
+        if (player.hasAbility("dark_purpose") && !poName.toLowerCase().contains("custodian")) {
             MessageHelper.sendMessageToChannel(
                     player.getCorrectChannel(),
                     player.getRepresentation() + " gains 1 command token from **Dark Purpose**.");
@@ -123,6 +125,21 @@ public class ScorePublicObjectiveService {
             String message2 = player.getRepresentationUnfogged() + ", your current command tokens are "
                     + player.getCCRepresentation() + ". Use buttons to gain 1 command token.";
             MessageHelper.sendMessageToChannelWithButtons(player.getCorrectChannel(), message2, buttons);
+        }
+        if (player.hasTech("tf-yinascendant") && !poName.toLowerCase().contains("custodian")) {
+            MessageHelper.sendMessageToChannel(
+                    player.getCorrectChannel(), player.getRepresentation() + " gains 1 card due to Yin Ascendant.");
+            List<Button> buttons = new ArrayList<>();
+            buttons.add(Buttons.green("drawSingularNewSpliceCard_ability", "Draw 1 Ability"));
+            buttons.add(Buttons.green("drawSingularNewSpliceCard_units", "Draw 1 Unit Upgrade"));
+            buttons.add(Buttons.green("drawSingularNewSpliceCard_genome", "Draw 1 Genome"));
+            buttons.add(Buttons.red("deleteButtons", "Done resolving"));
+            String message2 = player.getRepresentationUnfogged() + " use buttons to resolve.";
+            MessageHelper.sendMessageToChannelWithButtons(player.getCorrectChannel(), message2, buttons);
+        }
+        if (!poName.toLowerCase().contains("custodian")
+                && (player.hasAbility("yin_breakthrough") || player.hasUnlockedBreakthrough("yinbt"))) {
+            BreakthroughHelper.resolveYinBreakthroughAbility(game, player);
         }
         String idC = "";
         for (Entry<String, Integer> po : game.getRevealedPublicObjectives().entrySet()) {

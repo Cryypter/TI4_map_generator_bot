@@ -3,8 +3,8 @@ package ti4.buttons.handlers.leader.hero;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.experimental.UtilityClass;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import ti4.buttons.Buttons;
 import ti4.helpers.ButtonHelper;
 import ti4.helpers.ButtonHelperHeroes;
@@ -14,6 +14,7 @@ import ti4.map.Game;
 import ti4.map.Player;
 import ti4.map.Tile;
 import ti4.message.MessageHelper;
+import ti4.service.fow.BlindSelectionService;
 
 @UtilityClass
 class BenedictionButtonHandler {
@@ -63,6 +64,8 @@ class BenedictionButtonHandler {
                         tile2.getRepresentationForButtons(game, origPlayer)));
             }
         }
+        BlindSelectionService.filterForBlindPositionSelection(
+                game, origPlayer, buttons, finChecker + "mahactBenedictionFrom_" + pos1);
         return buttons;
     }
 }

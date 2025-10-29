@@ -7,7 +7,6 @@ import javax.annotation.Nonnull;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.modals.ModalMapping;
-import ti4.AsyncTI4DiscordBot;
 import ti4.executors.ExecutorServiceManager;
 import ti4.listeners.annotations.AnnotationHandler;
 import ti4.listeners.annotations.ModalHandler;
@@ -16,6 +15,7 @@ import ti4.map.Game;
 import ti4.message.logging.BotLogger;
 import ti4.message.logging.LogOrigin;
 import ti4.service.game.GameNameService;
+import ti4.spring.jda.JdaService;
 
 public class ModalListener extends ListenerAdapter {
 
@@ -34,7 +34,7 @@ public class ModalListener extends ListenerAdapter {
 
     @Override
     public void onModalInteraction(@Nonnull ModalInteractionEvent event) {
-        if (!AsyncTI4DiscordBot.isReadyToReceiveCommands()) {
+        if (!JdaService.isReadyToReceiveCommands()) {
             event.reply("Please try again in a moment. The bot is not ready to handle button presses.")
                     .setEphemeral(true)
                     .queue();
@@ -97,7 +97,10 @@ public class ModalListener extends ListenerAdapter {
     public static String getModalDebugText(ModalInteractionEvent event) {
         StringBuilder output = new StringBuilder("INPUT:\n```\n" + "MenuID: " + event.getModalId());
         for (ModalMapping field : event.getValues()) {
-            output.append("\n> Field: ").append(field.getId()).append(" => ").append(field.getAsString());
+            output.append("\n> Field: ")
+                    .append(field.getCustomId())
+                    .append(" => ")
+                    .append(field.getAsString());
         }
         output.append("\n```");
         return output.toString();

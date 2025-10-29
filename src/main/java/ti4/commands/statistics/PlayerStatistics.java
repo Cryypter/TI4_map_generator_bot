@@ -9,7 +9,7 @@ import ti4.service.statistics.player.PlayerStatisticsService;
 
 class PlayerStatistics extends Subcommand {
 
-    private static final String MINIMUM_GAME_COUNT_FILTER = "has_minimum_game_count";
+    private static final String MINIMUM_GAME_COUNT_FILTER = "min_game_count";
     private static final String MAX_LIST_SIZE = "max_list_size";
 
     public PlayerStatistics() {
@@ -18,11 +18,6 @@ class PlayerStatistics extends Subcommand {
                 .setRequired(true)
                 .setAutoComplete(true));
         addOptions(GameStatisticsFilterer.gameStatsFilters());
-        addOptions(new OptionData(
-                        OptionType.STRING,
-                        GameStatisticsFilterer.WINNING_FACTION_FILTER,
-                        "Filter games by if the game was won by said faction")
-                .setAutoComplete(true));
         addOptions(new OptionData(
                 OptionType.INTEGER,
                 MINIMUM_GAME_COUNT_FILTER,

@@ -10,8 +10,10 @@ import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import lombok.experimental.UtilityClass;
 import net.dv8tion.jda.api.Permission;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.ISnowflake;
 import net.dv8tion.jda.api.entities.Member;
@@ -22,14 +24,11 @@ import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.concrete.ThreadChannel;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import net.dv8tion.jda.api.managers.channel.concrete.TextChannelManager;
 import net.dv8tion.jda.api.managers.channel.concrete.ThreadChannelManager;
 import net.dv8tion.jda.api.requests.restaction.ChannelAction;
 import net.dv8tion.jda.api.utils.FileUpload;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.Nullable;
-import ti4.AsyncTI4DiscordBot;
 import ti4.ResourceHelper;
 import ti4.buttons.Buttons;
 import ti4.commands.CommandHelper;
@@ -47,9 +46,10 @@ import ti4.message.logging.BotLogger;
 import ti4.message.logging.LogOrigin;
 import ti4.service.async.ReserveGameNumberService;
 import ti4.service.image.FileUploadService;
-import ti4.service.option.GameOptionService;
+import ti4.service.option.TEOptionService;
 import ti4.settings.GlobalSettings;
 import ti4.settings.users.UserSettingsManager;
+import ti4.spring.jda.JdaService;
 
 @UtilityClass
 public class CreateGameService {
@@ -75,7 +75,7 @@ public class CreateGameService {
         if (game == null) return;
 
         TextChannel bothelperLoungeChannel =
-                AsyncTI4DiscordBot.guildPrimary.getTextChannelsByName("staff-lounge", true).stream()
+                JdaService.guildPrimary.getTextChannelsByName("staff-lounge", true).stream()
                         .findFirst()
                         .orElse(null);
         if (bothelperLoungeChannel == null) return;
@@ -206,9 +206,9 @@ public class CreateGameService {
         introductionForNewPlayers(newGame);
 
         // Create Cards Info Threads
-        // for (Player player : newGame.getPlayers().values()) {
-        // player.createCardsInfoThreadChannelsIfRequired();
-        // }
+        for (Player player : newGame.getPlayers().values()) {
+            player.getCardsInfoThread();
+        }
 
         // Report Channel Creation back to Launch channel
         String message = "Role and Channels have been set up:\n> " + role.getName()
@@ -222,7 +222,9 @@ public class CreateGameService {
 
         // AUTOCLOSE LAUNCH THREAD AFTER RUNNING COMMAND
         if (event.getChannel() instanceof ThreadChannel thread
-                && "making-new-games".equals(thread.getParentChannel().getName())) {
+                && ("making-new-games".equals(thread.getParentChannel().getName())
+                        || "making-private-games"
+                                .equals(thread.getParentChannel().getName()))) {
             newGame.setLaunchPostThreadID(thread.getId());
             ThreadChannelManager manager = thread.getManager()
                     .setName(StringUtils.left(newGame.getName() + "-launched [FULL] - " + thread.getName(), 100))
@@ -248,16 +250,32 @@ public class CreateGameService {
         MessageChannel actionsChannel = game.getActionsChannel();
 
         Button miltyButton = Buttons.green("miltySetup", "Start Milty Setup");
+        Button nucleusButton = Buttons.green("startDraftSystem_nucleusPreset", "Start Nucleus Setup");
         Button addMapString = Buttons.green("addMapString~MDL", "Add Prebuilt Map String");
         MessageHelper.sendMessageToChannelWithButtons(
                 actionsChannel,
                 "How would you like to set up the players and map?",
-                List.of(miltyButton, addMapString));
+                List.of(miltyButton, nucleusButton, addMapString));
 
-        // Button offerOptions = Buttons.green("offerGameOptionButtons", "Options");
-        GameOptionService.offerGameOptionButtons(game, actionsChannel);
-        // MessageHelper.sendMessageToChannelWithButton(actionsChannel, "Want to change
-        // some options? ", offerOptions);
+        Button offerOptions = Buttons.green("offerGameOptionButtons", "Options");
+        MessageHelper.sendMessageToChannelWithButton(
+                actionsChannel, "Want to change Game options?\n-# `/game options`", offerOptions);
+
+        boolean abbreviateTE = false;
+        for (Player player : game.getPlayers().values()) {
+            if (ButtonHelper.isPlayerNew(player.getUserID())
+                    || player.getUserID().equalsIgnoreCase("481860200169472030")) {
+                abbreviateTE = true;
+                break;
+            }
+        }
+        if (abbreviateTE) {
+            Button teOptions = Buttons.green("offerTEOptionButtons", "Thunder's Edge Settings");
+            MessageHelper.sendMessageToChannelWithButton(
+                    actionsChannel, "Want to demo some of Thunder's Edge features?", teOptions);
+        } else {
+            TEOptionService.offerTEOptionButtons(game, actionsChannel);
+        }
 
         HomebrewService.offerGameHomebrewButtons(actionsChannel);
         ButtonHelper.offerPlayerSetupButtons(actionsChannel, game);
@@ -336,6 +354,7 @@ public class CreateGameService {
         // step away, and if you ever feel the need to leave a game permanently, we do have a replacement system that
         // gets a fair amount of use (ping a bothelper for specifics)";
         MessageHelper.sendMessageToChannelAndPin(chatChannel, tabletalkGetStartedMessage);
+        StartPhaseService.postSurveyResults(game);
     }
 
     private static void introductionForNewPlayers(Game game) {
@@ -354,7 +373,7 @@ public class CreateGameService {
         }
 
         chatChannel
-                .createThreadChannel("Info for Players new to AsyncTI4")
+                .createThreadChannel(Constants.NEW_PLAYER_THREAD_NAME)
                 .setAutoArchiveDuration(ThreadChannel.AutoArchiveDuration.TIME_1_WEEK)
                 .queue(
                         introThread -> {
@@ -402,7 +421,7 @@ public class CreateGameService {
             sb.append(
                     "### Sorry for the inconvenience!\nDue to Discord's limits on Role/Channel/Thread count, we need to create this game on another server.\nPlease use the invite below to join our **");
             sb.append(guild.getName()).append("** server.\n");
-            sb.append(Helper.getGuildInviteURL(guild, missingMembers.size() + 10))
+            sb.append(Helper.getGuildInviteURL(guild, missingMembers.size() + 15))
                     .append("\n");
             sb.append("The following players need to join the server:\n");
             for (Member member : missingMembers) {
@@ -417,14 +436,20 @@ public class CreateGameService {
         return missingMembers;
     }
 
-    public static String getNextGameName() {
+    public static Integer getNextGameNumber() {
         List<Integer> existingNums = getAllExistingPBDNumbers();
         if (existingNums.isEmpty()) {
-            return "pbd1";
+            return 1;
         }
-        int nextPBDNumber = Collections.max(getAllExistingPBDNumbers()) + 1;
-        while (ReserveGameNumberService.isGameNumReserved("pbd" + nextPBDNumber)) nextPBDNumber++;
-        return "pbd" + nextPBDNumber;
+        int nextPBDNumber = Collections.max(existingNums) + 1;
+        while (ReserveGameNumberService.isGameNumReserved("pbd" + nextPBDNumber)) {
+            nextPBDNumber++;
+        }
+        return nextPBDNumber;
+    }
+
+    public static String getNextGameName() {
+        return "pbd" + getNextGameNumber();
     }
 
     public static String getLastGameName() {
@@ -432,12 +457,12 @@ public class CreateGameService {
         if (existingNums.isEmpty()) {
             return "pbd1";
         }
-        int nextPBDNumber = Collections.max(getAllExistingPBDNumbers());
+        int nextPBDNumber = Collections.max(existingNums);
         return "pbd" + nextPBDNumber;
     }
 
     public static boolean gameOrRoleAlreadyExists(String name) {
-        List<Guild> guilds = AsyncTI4DiscordBot.jda.getGuilds();
+        List<Guild> guilds = JdaService.jda.getGuilds();
         List<String> gameAndRoleNames = new ArrayList<>();
 
         // GET ALL PBD ROLES FROM ALL GUILDS
@@ -456,7 +481,7 @@ public class CreateGameService {
     }
 
     private static List<Integer> getAllExistingPBDNumbers() {
-        List<Guild> guilds = new ArrayList<>(AsyncTI4DiscordBot.guilds);
+        List<Guild> guilds = new ArrayList<>(JdaService.guilds);
         List<Integer> pbdNumbers = new ArrayList<>();
 
         // GET ALL PBD ROLES FROM ALL GUILDS
@@ -490,13 +515,13 @@ public class CreateGameService {
 
     @Nullable
     private static Guild getServerWithMostCapacity() {
-        List<Guild> guilds = AsyncTI4DiscordBot.serversToCreateNewGamesOn.stream()
+        List<Guild> guilds = JdaService.serversToCreateNewGamesOn.stream()
                 .filter(CreateGameService::serverHasRoomForNewFullCategory)
                 .sorted(Comparator.comparing(CreateGameService::getServerCapacityForNewGames))
                 .toList();
 
-        if (guilds.isEmpty() && serverHasRoomForNewFullCategory(AsyncTI4DiscordBot.guildPrimary)) {
-            return AsyncTI4DiscordBot.guildPrimary;
+        if (guilds.isEmpty() && serverHasRoomForNewFullCategory(JdaService.guildPrimary)) {
+            return JdaService.guildPrimary;
         }
 
         if (guilds.isEmpty()) {
@@ -616,7 +641,7 @@ public class CreateGameService {
     }
 
     public static List<Category> getAllAvailablePBDCategories() {
-        return AsyncTI4DiscordBot.getAvailablePBDCategories();
+        return JdaService.getAvailablePBDCategories();
     }
 
     public static Category createNewCategory(String categoryName) {
@@ -627,7 +652,7 @@ public class CreateGameService {
             return null;
         }
 
-        List<Category> categories = AsyncTI4DiscordBot.jda.getCategoriesByName(categoryName, false);
+        List<Category> categories = JdaService.jda.getCategoriesByName(categoryName, false);
         if (!categories.isEmpty()) {
             String message = categories.stream().map(Channel::getAsMention).collect(Collectors.joining("\n"));
             BotLogger.info("Game Channel Creation - Category Already Exists:\n" + message);
@@ -669,7 +694,7 @@ public class CreateGameService {
     }
 
     public static boolean isLockedFromCreatingGames(GenericInteractionCreateEvent event) {
-        if (CommandHelper.hasRole(event, AsyncTI4DiscordBot.bothelperRoles)) {
+        if (CommandHelper.hasRole(event, JdaService.bothelperRoles)) {
             return false;
         }
 

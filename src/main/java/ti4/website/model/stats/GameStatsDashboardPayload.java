@@ -2,12 +2,10 @@ package ti4.website.model.stats;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -23,10 +21,13 @@ import ti4.image.Mapper;
 import ti4.map.Game;
 import ti4.map.Player;
 import ti4.map.Tile;
+import ti4.map.helper.GameHelper;
+import ti4.map.pojo.PlayerProperties;
 import ti4.message.logging.BotLogger;
 import ti4.model.AgendaModel;
 import ti4.model.PublicObjectiveModel;
 import ti4.model.SecretObjectiveModel;
+import ti4.website.EgressClientManager;
 
 public class GameStatsDashboardPayload {
 
@@ -38,9 +39,8 @@ public class GameStatsDashboardPayload {
 
     @JsonIgnore
     public String getJson() {
-        ObjectMapper mapper = new ObjectMapper();
         try {
-            return mapper.writeValueAsString(this);
+            return EgressClientManager.getObjectMapper().writeValueAsString(this);
         } catch (Exception e) {
             BotLogger.error("Could not get GameStatsDashboardPayload JSON for Game ", e);
             return null;
@@ -221,7 +221,7 @@ public class GameStatsDashboardPayload {
     public long getSetupTimestamp() {
         LocalDate localDate;
         try {
-            localDate = LocalDate.parse(game.getCreationDate(), DateTimeFormatter.ofPattern("yyyy.MM.dd"));
+            localDate = GameHelper.getCreationDateAsLocalDate(game);
         } catch (DateTimeParseException e) {
             localDate = LocalDate.now();
         }
@@ -269,8 +269,8 @@ public class GameStatsDashboardPayload {
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e1));
     }
 
-    public String winner() {
-        return game.getWinner().isPresent() ? game.getWinner().get().getUserID() : null;
+    public List<String> getWinners() {
+        return game.getWinners().stream().map(PlayerProperties::getUserID).toList();
     }
 
     public boolean hasCompleted() {

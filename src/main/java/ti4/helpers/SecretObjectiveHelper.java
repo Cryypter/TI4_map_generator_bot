@@ -6,12 +6,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import ti4.buttons.Buttons;
 import ti4.image.Mapper;
 import ti4.map.Game;
+import ti4.map.Leader;
 import ti4.map.Player;
 import ti4.message.MessageHelper;
 import ti4.model.SecretObjectiveModel;
@@ -21,6 +22,7 @@ import ti4.service.info.ListPlayerInfoService;
 import ti4.service.info.SecretObjectiveInfoService;
 import ti4.service.leader.CommanderUnlockCheckService;
 import ti4.service.leader.HeroUnlockCheckService;
+import ti4.service.leader.UnlockLeaderService;
 
 public class SecretObjectiveHelper {
 
@@ -48,9 +50,36 @@ public class SecretObjectiveHelper {
             } else {
                 message.append(SecretObjectiveInfoService.getSecretObjectiveRepresentation(entry.getKey()));
             }
+            boolean zealous = false;
+            String leader = "";
+            if (game.isZealousOrthodoxyMode()
+                    && game.getScoredPublicObjectives().get("Zealous Orthodoxy") == null
+                    && player.getSecretsScored().size() == 2) {
+                zealous = true;
+                int poIndex = game.addCustomPO("Zealous Orthodoxy", 1);
+                game.scorePublicObjective(player.getUserID(), poIndex);
+                MessageHelper.sendMessageToChannel(
+                        game.getActionsChannel(),
+                        player.getRepresentation()
+                                + " also scored 1 VP due to Zealous Orthodoxy. Everyone will gain their commander ability.");
+                for (Leader leaderP : player.getLeaders()) {
+                    if (leaderP.getId().contains("commander")) {
+                        leader = leaderP.getId();
+                        if (leaderP.isLocked()) {
+                            UnlockLeaderService.unlockLeader(leader, game, player);
+                            game.addFakeCommander(leader);
+                        }
+                        break;
+                    }
+                }
+            }
             for (Player p2 : game.getRealPlayers()) {
                 if (p2 == player) {
                     continue;
+                }
+                if (zealous && !leader.isEmpty()) {
+                    p2.addLeader(leader);
+                    UnlockLeaderService.unlockLeader(leader, game, p2);
                 }
                 if (p2.hasLeaderUnlocked("tnelishero")) {
                     List<Button> buttons = new ArrayList<>();
@@ -76,17 +105,17 @@ public class SecretObjectiveHelper {
                     List<String> playerFragments = player.getFragments();
                     List<String> fragmentsToPurge = new ArrayList<>(playerFragments);
                     StringBuilder message2 = new StringBuilder(player.getRepresentation() + " purged");
-                    for (String fragid : fragmentsToPurge) {
-                        player.removeFragment(fragid);
+                    for (String fragId : fragmentsToPurge) {
+                        player.removeFragment(fragId);
                         game.setNumberOfPurgedFragments(game.getNumberOfPurgedFragments() + 1);
-                        switch (fragid) {
+                        switch (fragId) {
                             case "crf1", "crf2", "crf3", "crf4", "crf5", "crf6", "crf7", "crf8", "crf9" ->
                                 message2.append(" " + ExploreEmojis.CFrag);
                             case "hrf1", "hrf2", "hrf3", "hrf4", "hrf5", "hrf6", "hrf7" ->
                                 message2.append(" " + ExploreEmojis.HFrag);
                             case "irf1", "irf2", "irf3", "irf4", "irf5" -> message2.append(" " + ExploreEmojis.IFrag);
                             case "urf1", "urf2", "urf3" -> message2.append(" " + ExploreEmojis.UFrag);
-                            default -> message2.append(" ").append(fragid);
+                            default -> message2.append(" ").append(fragId);
                         }
                     }
                     CommanderUnlockCheckService.checkAllPlayersInGame(game, "lanefir");
@@ -152,6 +181,18 @@ public class SecretObjectiveHelper {
                     + ". Use buttons to gain 1 command token.";
             MessageHelper.sendMessageToChannelWithButtons(player.getCorrectChannel(), message2, buttons);
         }
+
+        if (player.hasTech("tf-yinascendant")) {
+            MessageHelper.sendMessageToChannel(
+                    player.getCorrectChannel(), player.getRepresentation() + " gains 1 card due to Yin Ascendant.");
+            List<Button> buttons = new ArrayList<>();
+            buttons.add(Buttons.green("drawSingularNewSpliceCard_ability", "Draw 1 Ability"));
+            buttons.add(Buttons.green("drawSingularNewSpliceCard_units", "Draw 1 Unit Upgrade"));
+            buttons.add(Buttons.green("drawSingularNewSpliceCard_genome", "Draw 1 Genome"));
+            buttons.add(Buttons.red("deleteButtons", "Done resolving"));
+            String message2 = player.getRepresentationUnfogged() + " use buttons to resolve.";
+            MessageHelper.sendMessageToChannelWithButtons(player.getCorrectChannel(), message2, buttons);
+        }
         CommanderUnlockCheckService.checkPlayer(player, "nomad");
         Helper.checkEndGame(game, player);
     }
@@ -210,7 +251,7 @@ public class SecretObjectiveHelper {
         return getSODiscardButtonsWithSuffix(player, "");
     }
 
-    private static List<Button> getSODiscardButtonsWithSuffix(Player player, String suffix) {
+    public static List<Button> getSODiscardButtonsWithSuffix(Player player, String suffix) {
         Map<String, Integer> secretObjectives = player.getSecrets();
         List<Button> soButtons = new ArrayList<>();
         if (secretObjectives != null && !secretObjectives.isEmpty()) {

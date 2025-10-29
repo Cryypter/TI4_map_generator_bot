@@ -1,12 +1,15 @@
 package ti4.service.unit;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import org.apache.commons.lang3.function.Consumers;
+import ti4.ResourceHelper;
 import ti4.buttons.Buttons;
 import ti4.helpers.AliasHandler;
 import ti4.helpers.ButtonHelper;
@@ -19,6 +22,7 @@ import ti4.helpers.Helper;
 import ti4.helpers.Units.UnitKey;
 import ti4.helpers.Units.UnitState;
 import ti4.helpers.Units.UnitType;
+import ti4.helpers.thundersedge.BreakthroughCommandHelper;
 import ti4.map.Game;
 import ti4.map.Player;
 import ti4.map.Tile;
@@ -199,6 +203,11 @@ public class DestroyUnitService {
                     for (Player player_ : game.getPlayers().values()) {
                         destroyAllPlayerNonStructureUnits(event, game, player_, unit.tile(), uh, combat);
                     }
+                    int randomJokeChance = ThreadLocalRandom.current().nextInt(1, 3);
+                    File audioFile = ResourceHelper.getFile("voices/yin/", "Bomb" + randomJokeChance + ".mp3");
+                    if (audioFile.exists()) {
+                        MessageHelper.sendFileToChannel(event.getMessageChannel(), audioFile);
+                    }
                     DisasterWatchHelper.postTileInDisasterWatch(
                             game, event, unit.tile(), 0, player.getRepresentation() + " has detonated the bomb.");
                 }
@@ -264,18 +273,21 @@ public class DestroyUnitService {
                                 + " " + unit.unitKey().getUnitType().getUnitTypeEmoji() + ".";
                 MessageHelper.sendMessageToChannelWithButtons(player.getCorrectChannel(), msg, buttons);
             } else {
+
                 Player killer = killers.getFirst();
-                String planet = ButtonHelperActionCards.getBestResPlanetInHomeSystem(killer, game);
-                int newAmount = game.changeCommsOnPlanet(winnings, planet);
-                MessageHelper.sendMessageToChannel(
-                        killer.getCorrectChannel(),
-                        killer.getRepresentationNoPing() + " added " + winnings + " commodities to the planet of "
-                                + Helper.getPlanetRepresentation(planet, game)
-                                + " (which has " + newAmount + " commodities on it now) by destroying "
-                                + unit.getTotalRemoved() + " of "
-                                + player.getRepresentationNoPing() + "'s "
-                                + unit.unitKey().getUnitType().getUnitTypeEmoji()
-                                + "\nIf this was a mistake, adjust the commodities with `/ds set_planet_comms`.");
+                if (killer.isRealPlayer()) {
+                    String planet = ButtonHelperActionCards.getBestResPlanetInHomeSystem(killer, game);
+                    int newAmount = game.changeCommsOnPlanet(winnings, planet);
+                    MessageHelper.sendMessageToChannel(
+                            killer.getCorrectChannel(),
+                            killer.getRepresentationNoPing() + " added " + winnings + " commodities to the planet of "
+                                    + Helper.getPlanetRepresentation(planet, game)
+                                    + " (which has " + newAmount + " commodities on it now) by destroying "
+                                    + unit.getTotalRemoved() + " of "
+                                    + player.getRepresentationNoPing() + "'s "
+                                    + unit.unitKey().getUnitType().getUnitTypeEmoji()
+                                    + "\nIf this was a mistake, adjust the commodities with `/ds set_planet_comms`.");
+                }
             }
         }
         if (game.isAgeOfFightersMode() && player != null) {
@@ -295,6 +307,9 @@ public class DestroyUnitService {
     }
 
     private static void handleSelfAssemblyRoutines(Player player, int min, Game game) {
+        if (player.hasActiveBreakthrough("naazbt")) {
+            BreakthroughCommandHelper.deactivateBreakthrough(player);
+        }
         if (player.hasTech("sar")) {
             MessageHelper.sendMessageToChannel(
                     player.getCorrectChannel(),

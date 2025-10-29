@@ -6,9 +6,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import lombok.experimental.UtilityClass;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import ti4.buttons.Buttons;
 import ti4.helpers.ButtonHelper;
 import ti4.helpers.ButtonHelperAgents;
@@ -131,7 +131,7 @@ public class TacticalActionService {
         return false;
     }
 
-    private boolean moveUnitsIntoActiveSystem(ButtonInteractionEvent event, Game game, Player player, Tile tile) {
+    private boolean moveUnitsIntoActiveSystem(ButtonInteractionEvent event, Game game, Tile tile) {
         // Flip mallice
         if (TacticalActionDisplacementService.hasPendingDisplacement(game)) {
             tile = FlipTileService.flipTileIfNeeded(event, tile, game);
@@ -142,7 +142,7 @@ public class TacticalActionService {
             }
         }
 
-        return TacticalActionDisplacementService.applyDisplacementToActiveSystem(game, player, tile);
+        return TacticalActionDisplacementService.applyDisplacementToActiveSystem(game, tile);
     }
 
     public void finishMovement(ButtonInteractionEvent event, Game game, Player player, Tile tile) {
@@ -166,7 +166,7 @@ public class TacticalActionService {
 
         // Post-core triggers
         CommanderUnlockCheckService.checkPlayer(player, "naaz", "empyrean", "ghost");
-        CommanderUnlockCheckService.checkPlayer(player, "nivyn", "ghoti", "zelian", "gledge", "mortheus");
+        CommanderUnlockCheckService.checkPlayer(player, "nivyn", "ghoti", "zelian", "gledge", "mortheus", "hacan");
         CommanderUnlockCheckService.checkAllPlayersInGame(game, "empyrean");
 
         if (!game.isL1Hero() && !ctx.playersWithPds2.isEmpty()) {
@@ -195,7 +195,7 @@ public class TacticalActionService {
             ButtonInteractionEvent event, Game game, Player player, Tile tile) {
         List<Player> playersWithPds2 = ButtonHelper.tileHasPDS2Cover(player, game, tile.getPosition());
 
-        boolean unitsWereMoved = moveUnitsIntoActiveSystem(event, game, player, tile);
+        boolean unitsWereMoved = moveUnitsIntoActiveSystem(event, game, tile);
         Tile updatedTile = game.getTileByPosition(tile.getPosition());
         spendAndPlaceTokenIfNecessary(event, game, player, updatedTile);
 
@@ -256,7 +256,7 @@ public class TacticalActionService {
         List<Button> buttons = new ArrayList<>();
 
         int productionVal = Helper.getProductionValue(player, game, tile, false);
-        if (productionVal > 0) {
+        if (productionVal > 0 || ("18".equalsIgnoreCase(tile.getTileID()) && player.hasIIHQ())) {
             buttons.add(createBuildButton(player, tile, productionVal));
         }
         if (!game.getStoredValue("possiblyUsedRift").isEmpty()) {
@@ -264,6 +264,12 @@ public class TacticalActionService {
                     player.finChecker() + "getRiftButtons_" + tile.getPosition(),
                     "Units Travelled Through Gravity Rift",
                     MiscEmojis.GravityRift));
+        }
+        if (game.isWeirdWormholesMode()) {
+            buttons.add(Buttons.green(
+                    player.finChecker() + "getWeirdWormholeButtons_" + tile.getPosition(),
+                    "Units Travelled Through Weird Wormhole",
+                    MiscEmojis.WHalpha));
         }
         if (player.hasUnexhaustedLeader("sardakkagent")) {
             buttons.addAll(ButtonHelperAgents.getSardakkAgentButtons(game));
@@ -282,10 +288,9 @@ public class TacticalActionService {
     }
 
     public static List<Button> getTilesToMoveFrom(Player player, Game game, GenericInteractionCreateEvent event) {
-        List<Button> buttons = new ArrayList<>();
 
         // Tile selection buttons
-        buttons.addAll(buildMoveFromTileSelectionButtons(player, game, event));
+        List<Button> buttons = new ArrayList<>(buildMoveFromTileSelectionButtons(player, game, event));
 
         // Ability contributions
         MoveContext pubCtx = new MoveContext(player, game, event);
@@ -370,6 +375,7 @@ public class TacticalActionService {
 
     private boolean shouldSkipPlacingAbilities(Game game, Player player) {
         return game.isNaaluAgent()
+                || game.isWarfareAction()
                 || game.isL1Hero()
                 || (!game.getStoredValue("hiredGunsInPlay").isEmpty() && player != game.getActivePlayer());
     }
@@ -398,7 +404,9 @@ public class TacticalActionService {
         List<UnitType> committable = new ArrayList<>(List.of(UnitType.Mech, UnitType.Infantry));
         boolean naaluFS = (player.hasUnit("naalu_flagship") || player.hasUnit("sigma_naalu_flagship_2"))
                 && space.getUnitCount(UnitType.Flagship, player) > 0;
-        boolean belkoFF = player.hasUnit("belkosea_fighter") || player.hasUnit("belkosea_fighter2");
+        boolean belkoFF = player.hasUnit("belkosea_fighter")
+                || player.hasUnit("belkosea_fighter2")
+                || player.hasUnit("tf-morphwing");
         if (naaluFS || belkoFF) committable.add(UnitType.Fighter);
         return committable;
     }

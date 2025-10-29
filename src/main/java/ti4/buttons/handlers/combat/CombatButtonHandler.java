@@ -1,8 +1,8 @@
 package ti4.buttons.handlers.combat;
 
 import lombok.experimental.UtilityClass;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import ti4.buttons.Buttons;
 import ti4.helpers.ButtonHelper;
 import ti4.helpers.ButtonHelperModifyUnits;
@@ -28,7 +28,7 @@ class CombatButtonHandler {
         String confirmed = buttonID.split("_")[4];
         if (player != p1 && player != p2) {
             MessageHelper.sendMessageToChannel(
-                    event.getMessageChannel(), "This button is only for combat participants");
+                    event.getMessageChannel(), "This button is only for combat participants.");
             return;
         }
         Player opponent;
@@ -61,9 +61,9 @@ class CombatButtonHandler {
         if (game.isFowMode()) {
             String targetFaction = buttonID.split("_")[2];
             Player target = game.getPlayerFromColorOrFaction(targetFaction);
-            if (target != null) {
+            if (target != null && target.getPrivateChannel() != null) {
                 MessageHelper.sendMessageToChannel(
-                        target.getCorrectChannel(), target.getRepresentationUnfogged() + " " + msg);
+                        target.getPrivateChannel(), target.getRepresentationUnfogged() + " " + msg);
             }
         }
         MessageHelper.sendMessageToChannel(

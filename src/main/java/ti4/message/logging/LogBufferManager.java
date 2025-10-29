@@ -9,9 +9,9 @@ import java.util.Map;
 import javax.annotation.Nonnull;
 import lombok.experimental.UtilityClass;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
-import ti4.AsyncTI4DiscordBot;
 import ti4.helpers.ThreadGetter;
 import ti4.message.MessageHelper;
+import ti4.spring.jda.JdaService;
 
 @UtilityClass
 public class LogBufferManager {
@@ -21,16 +21,6 @@ public class LogBufferManager {
     private static final Object BUFFER_LOCK = new Object();
 
     private static Deque<AbstractEventLog> logBuffer = new ArrayDeque<>(INITIAL_BUFFER_SIZE);
-    private static TextChannel primaryBotLogChannel;
-
-    public static void initialize() {
-        List<TextChannel> logCandidates = AsyncTI4DiscordBot.guildPrimary.getTextChannelsByName("bot-log", false);
-        if (logCandidates.isEmpty()) {
-            BotLogger.error("Primary log channel could not be found in InteractionLogCron");
-            return;
-        }
-        primaryBotLogChannel = logCandidates.getFirst();
-    }
 
     static void addLogMessage(@Nonnull AbstractEventLog logMessage) {
         synchronized (BUFFER_LOCK) {
@@ -81,22 +71,23 @@ public class LogBufferManager {
     }
 
     private static void sendByChannelOrThread(LogTarget target, StringBuilder message) {
-        List<TextChannel> logCandidates =
-                AsyncTI4DiscordBot.guildPrimary.getTextChannelsByName(target.channelName(), false);
+        List<TextChannel> logCandidates = JdaService.guildPrimary.getTextChannelsByName(target.channelName(), false);
 
-        if (!logCandidates.isEmpty()) {
-            logCandidates.getFirst().sendMessage(message.toString()).queue();
+        if (logCandidates.isEmpty()) {
+            BotLogger.error("Cannot log buffered logs because target channel not found in primary guild: "
+                    + target.channelName());
             return;
         }
 
         try {
             ThreadGetter.getThreadInChannel(
-                    primaryBotLogChannel,
+                    logCandidates.getFirst(),
                     target.threadName(),
+                    false,
+                    false,
                     (threadChannel) -> MessageHelper.sendMessageToChannel(threadChannel, message.toString()));
         } catch (Exception e) {
-            BotLogger.error(
-                    "Failed to send a message via ThreadGetter in InteractionLogCron (this should not happen)", e);
+            BotLogger.error("Failed to send LogBufferManager message", e);
         }
     }
 

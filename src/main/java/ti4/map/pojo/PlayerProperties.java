@@ -5,8 +5,8 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import javax.annotation.Nullable;
 import lombok.Data;
-import org.jetbrains.annotations.Nullable;
 
 @Data
 public class PlayerProperties {
@@ -75,10 +75,17 @@ public class PlayerProperties {
     // LANEFIR TECH "ATS Armaments"
     private int atsCount;
 
+    private String breakthroughID = "";
+    private boolean breakthroughUnlocked = false;
+    private boolean breakthroughExhausted = false;
+    private boolean breakthroughActive = false;
+    private int breakthroughTGs = 0;
+
     // Stat tracking
     private int sarweenCounter;
     private int pillageCounter;
     private int magenInfantryCounter;
+    private int ghostCommanderCounter;
 
     // Omega Phase
     private int priorityPosition;

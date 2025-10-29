@@ -19,8 +19,8 @@ import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEve
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.managers.channel.concrete.ThreadChannelManager;
 import org.apache.commons.lang3.StringUtils;
-import ti4.AsyncTI4DiscordBot;
 import ti4.ResourceHelper;
+import ti4.helpers.ButtonHelper;
 import ti4.helpers.Constants;
 import ti4.helpers.Helper;
 import ti4.listeners.annotations.ButtonHandler;
@@ -34,6 +34,7 @@ import ti4.service.async.ReserveGameNumberService;
 import ti4.service.game.CreateGameService;
 import ti4.service.game.HomebrewService;
 import ti4.service.option.FOWOptionService.FOWOption;
+import ti4.spring.jda.JdaService;
 
 @UtilityClass
 public class CreateFoWGameService {
@@ -69,7 +70,7 @@ public class CreateFoWGameService {
         Game game;
         if (!"fow1".equalsIgnoreCase(lastGame)) {
             if (!GameManager.isValid(lastGame)) {
-                BotLogger.warning(
+                BotLogger.error(
                         new LogOrigin(event),
                         "**Unable to create new games because the last game cannot be found. Was it deleted but the roles still exist?**");
                 return;
@@ -124,7 +125,7 @@ public class CreateFoWGameService {
             return;
         }
 
-        event.editButton(null).queue();
+        ButtonHelper.deleteMessage(event);
         executeCreateFoWGame(guild, gameName, gameSillyName, gm, members, event.getChannel());
     }
 
@@ -278,9 +279,9 @@ public class CreateFoWGameService {
         return Collections.max(getAllExistingFOWNumbers());
     }
 
-    private static ArrayList<Integer> getAllExistingFOWNumbers() {
-        List<Guild> guilds = AsyncTI4DiscordBot.jda.getGuilds();
-        ArrayList<Integer> fowNumbers = new ArrayList<>();
+    private static List<Integer> getAllExistingFOWNumbers() {
+        List<Guild> guilds = JdaService.jda.getGuilds();
+        List<Integer> fowNumbers = new ArrayList<>();
 
         // GET ALL FOW ROLES FROM ALL GUILDS
         for (Guild guild : guilds) {
@@ -361,7 +362,7 @@ public class CreateFoWGameService {
             return eventGuild;
         }
 
-        for (Guild fowGuild : AsyncTI4DiscordBot.fowServers) {
+        for (Guild fowGuild : JdaService.fowServers) {
             if (fowGuild != eventGuild && serverCanHostNewGame(fowGuild, playerCount)) {
                 return fowGuild;
             }

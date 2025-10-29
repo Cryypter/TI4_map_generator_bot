@@ -3,8 +3,8 @@ package ti4.buttons.handlers.leader.hero;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.experimental.UtilityClass;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import ti4.buttons.Buttons;
 import ti4.helpers.ButtonHelper;
 import ti4.helpers.ButtonHelperActionCards;
@@ -153,7 +153,7 @@ class OtherHeroButtonHandler {
     @ButtonHandler("purgeVaylerianHero")
     public static void purgeVaylerianHero(ButtonInteractionEvent event, Player player, Game game) { // TODO: add service
         purgeHeroPreamble(event, player, game, "vaylerianhero", "Dyln Harthuul, the Vaylerian hero");
-        if (!game.isNaaluAgent()) {
+        if (!game.isNaaluAgent() && !game.isWarfareAction()) {
             player.setTacticalCC(player.getTacticalCC() - 1);
             CommandCounterHelper.addCC(event, player, game.getTileByPosition(game.getActiveSystem()));
             game.setStoredValue("vaylerianHeroActive", "true");

@@ -11,8 +11,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.Getter;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import ti4.buttons.Buttons;
 import ti4.helpers.settingsFramework.settings.BooleanSetting;
 import ti4.helpers.settingsFramework.settings.ListSetting;
@@ -139,7 +139,12 @@ public class PlayerFactionSettings extends SettingsMenu {
 
         if (parent != null && parent instanceof MiltySettings ms) {
             if (ms.getSourceSettings().getDiscoStars().isVal())
-                ls.add(Buttons.red(idPrefix + "dsFactionsOnly", "Only DS Factions", SourceEmojis.DiscordantStars));
+                ls.add(Buttons.red(
+                        idPrefix + "dsFactionsOnly", "Only DS and BR Factions", SourceEmojis.DiscordantStars));
+        }
+        if (parent != null && parent instanceof MiltySettings ms) {
+            if (ms.getSourceSettings().getBetaTestMode().isVal())
+                ls.add(Buttons.red(idPrefix + "teFactions", "Prioritize TE Factions"));
         }
         return ls;
     }
@@ -149,6 +154,7 @@ public class PlayerFactionSettings extends SettingsMenu {
         String error =
                 switch (action) {
                     case "dsFactionsOnly" -> prioritizeDSFactions();
+                    case "teFactions" -> prioritizeTEFactions();
                     default -> null;
                 };
 
@@ -165,6 +171,21 @@ public class PlayerFactionSettings extends SettingsMenu {
             List<String> newKeys = new ArrayList<>();
             for (FactionModel model : priFactions.getAllValues().values()) {
                 if (model.getSource() == ComponentSource.ds) newKeys.add(model.getAlias());
+            }
+            priFactions.setKeys(newKeys);
+        }
+        return null;
+    }
+
+    private String prioritizeTEFactions() {
+        if (parent != null && parent instanceof MiltySettings ms) {
+
+            List<String> newKeys = new ArrayList<>();
+            for (FactionModel model : priFactions.getAllValues().values()) {
+                if (model.getAlias().equalsIgnoreCase("obsidian")) {
+                    continue;
+                }
+                if (model.getSource() == ComponentSource.thunders_edge) newKeys.add(model.getAlias());
             }
             priFactions.setKeys(newKeys);
         }

@@ -2,8 +2,8 @@ package ti4.buttons.handlers.unitPickers;
 
 import java.util.List;
 import lombok.experimental.UtilityClass;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import org.apache.commons.lang3.StringUtils;
 import ti4.helpers.ButtonHelper;
 import ti4.helpers.ButtonHelperCommanders;
@@ -144,7 +144,6 @@ class AssignHitsButtonHandlers {
                             matcher.group("state") != null && StringUtils.isNotBlank(matcher.group("state"));
                     UnitState state = prefersState ? Units.findUnitState(matcher.group("state")) : UnitState.none;
                     String planetName = matcher.group("planet");
-                    String color = matcher.group("color");
                     UnitHolder holder =
                             planetName != null ? tile.getUnitHolderFromPlanet(planetName) : tile.getSpaceUnitHolder();
                     UnitKey key = Units.getUnitKey(type, player.getColorID());
@@ -157,7 +156,7 @@ class AssignHitsButtonHandlers {
                                     : " in tile " + tile.getRepresentationForButtons(game, player))
                             + ".";
 
-                    List<Button> repairButtons = ButtonHelper.getButtonsForRepairingUnitsInASystem(player, game, tile);
+                    List<Button> repairButtons = ButtonHelper.getButtonsForRepairingUnitsInASystem(player, tile);
                     MessageHelper.editMessageButtons(event, repairButtons);
                     MessageHelper.sendMessageToChannel(event.getMessageChannel(), msg);
                     FOWCombatThreadMirroring.mirrorMessage(event, game, msg);
@@ -166,7 +165,7 @@ class AssignHitsButtonHandlers {
                     // Refresh buttons if there was an error
                     Tile activeSystem = game.getTileByPosition(game.getActiveSystem());
                     List<Button> repairButtons =
-                            ButtonHelper.getButtonsForRepairingUnitsInASystem(player, game, activeSystem);
+                            ButtonHelper.getButtonsForRepairingUnitsInASystem(player, activeSystem);
                     MessageHelper.editMessageButtons(event, repairButtons);
                     BotLogger.error(
                             new LogOrigin(event, game), "Error matching regex for sustaining hits: " + buttonID);
@@ -189,7 +188,6 @@ class AssignHitsButtonHandlers {
                             matcher.group("state") != null && StringUtils.isNotBlank(matcher.group("state"));
                     UnitState state = prefersState ? Units.findUnitState(matcher.group("state")) : UnitState.none;
                     String planetName = matcher.group("planet");
-                    String color = matcher.group("color");
                     UnitHolder holder =
                             planetName != null ? tile.getUnitHolderFromPlanet(planetName) : tile.getSpaceUnitHolder();
                     if (holder != null) holder.addDamagedUnit(Units.getUnitKey(type, player.getColorID()), amt);

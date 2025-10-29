@@ -5,7 +5,21 @@ import static org.apache.commons.lang3.StringUtils.isBlank;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import static org.apache.commons.lang3.StringUtils.substringBefore;
 
-import java.awt.*;
+import java.awt.AlphaComposite;
+import java.awt.BasicStroke;
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.GradientPaint;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.Image;
+import java.awt.Paint;
+import java.awt.Point;
+import java.awt.Polygon;
+import java.awt.Rectangle;
+import java.awt.RenderingHints;
+import java.awt.Shape;
+import java.awt.Stroke;
 import java.awt.font.GlyphVector;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
@@ -13,12 +27,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 import lombok.experimental.UtilityClass;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.emoji.CustomEmoji;
 import net.dv8tion.jda.api.entities.emoji.Emoji;
 import net.dv8tion.jda.api.entities.emoji.UnicodeEmoji;
-import org.jetbrains.annotations.Nullable;
 import ti4.ResourceHelper;
 import ti4.helpers.Storage;
 import ti4.image.MapGenerator.HorizontalAlign;
@@ -294,7 +308,7 @@ public class DrawingUtil {
     }
 
     @Nullable
-    private static String getFactionIconPath(String factionID) {
+    public static String getFactionIconPath(String factionID) {
         if ("null".equals(factionID) || isBlank(factionID)) {
             return null;
         }
@@ -395,8 +409,12 @@ public class DrawingUtil {
         return "_wht.png";
     }
 
+    public BufferedImage hexBorder(String hexBorderStyle, ColorModel color, List<Integer> openSides, float widthScale) {
+        return hexBorder(color, openSides, "solid".equals(hexBorderStyle), widthScale);
+    }
+
     public BufferedImage hexBorder(String hexBorderStyle, ColorModel color, List<Integer> openSides) {
-        return hexBorder(color, openSides, "solid".equals(hexBorderStyle));
+        return hexBorder(color, openSides, "solid".equals(hexBorderStyle), 1.0f);
     }
 
     public BufferedImage tintedBackground(Color color, float alpha) {
@@ -415,13 +433,13 @@ public class DrawingUtil {
         return bgImg;
     }
 
-    private BufferedImage hexBorder(ColorModel color, List<Integer> openSides, boolean solidLines) {
+    private BufferedImage hexBorder(ColorModel color, List<Integer> openSides, boolean solidLines, float widthScale) {
         BufferedImage img = new BufferedImage(400, 400, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g2 = img.createGraphics();
         boolean rainbow = color.getName().endsWith("rainbow");
 
-        float inlineSize = 3.0f;
-        float outlineSize = 6.0f;
+        float inlineSize = 3.0f * widthScale;
+        float outlineSize = inlineSize + 3.0f;
         // on, off, on, off, ....
         float[] dash = {solidLines ? 85.0f : 30.0f, solidLines ? 1000.0f : 17.0f, 30.0f, 1000.0f};
         float[] sparse = {11.0f, 1000.0f};
@@ -432,8 +450,8 @@ public class DrawingUtil {
         Stroke outlineSparse =
                 new BasicStroke(outlineSize, BasicStroke.CAP_BUTT, BasicStroke.JOIN_ROUND, 1.0f, sparse, 0.0f);
 
-        Color primary = color.primaryColor();
-        Color secondary = color.secondaryColor();
+        Color primary = color.getPrimaryColor();
+        Color secondary = color.getSecondaryColor();
         if (secondary == null) secondary = primary;
         if ("black".equals(color.getName())) primary = secondary = Color.darkGray;
 

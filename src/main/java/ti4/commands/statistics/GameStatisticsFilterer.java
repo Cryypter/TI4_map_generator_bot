@@ -52,6 +52,11 @@ public class GameStatisticsFilterer {
                 new OptionData(OptionType.BOOLEAN, HOMEBREW_FILTER, "Filter games by if the game has any homebrew"));
         filters.add(new OptionData(OptionType.BOOLEAN, HAS_WINNER_FILTER, "Filter games by if the game has a winner"));
         filters.add(new OptionData(
+                        OptionType.STRING,
+                        WINNING_FACTION_FILTER,
+                        "Filter games by if the game was won by said faction")
+                .setAutoComplete(true));
+        filters.add(new OptionData(
                 OptionType.BOOLEAN, HAS_GALACTIC_EVENT_FILTER, "Filter games by if the game has a galactic event"));
         filters.add(
                 new OptionData(OptionType.BOOLEAN, HAS_SCENARIO_FILTER, "Filter games by if the game has a scenario"));
@@ -105,10 +110,14 @@ public class GameStatisticsFilterer {
 
     public static Predicate<Game> getNormalFinishedGamesFilter(
             Integer playerCountFilter, Integer victoryPointGoalFilter) {
+        return getFinishedGamesFilter(playerCountFilter, victoryPointGoalFilter)
+                .and(game -> filterOnIsNormal(Boolean.TRUE, game));
+    }
+
+    public static Predicate<Game> getFinishedGamesFilter(Integer playerCountFilter, Integer victoryPointGoalFilter) {
         Predicate<Game> playerCountPredicate = game -> filterOnPlayerCount(playerCountFilter, game);
         return playerCountPredicate
                 .and(game -> filterOnVictoryPointGoal(victoryPointGoalFilter, game))
-                .and(game -> filterOnIsNormal(Boolean.TRUE, game))
                 .and(game -> filterOnHasWinner(Boolean.TRUE, game))
                 .and(GameStatisticsFilterer::filterAbortedGames)
                 .and(GameStatisticsFilterer::filterEarlyRounds);
@@ -137,8 +146,7 @@ public class GameStatisticsFilterer {
             case "absol" -> game.isAbsolMode();
             case "ds" -> isDiscordantStarsGame(game);
             case "pok" -> !game.isBaseGameMode();
-            case "action_deck_2" -> "action_deck_2".equals(game.getAcDeckID());
-            case "little_omega" -> game.isLittleOmega();
+            case "action_deck_2" -> game.isAcd2();
             case "franken" -> game.isFrankenGame();
             case "milty_mod" -> isMiltyModGame(game);
             case "red_tape" -> game.isRedTapeMode();

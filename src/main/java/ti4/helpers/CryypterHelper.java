@@ -7,11 +7,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.StringTokenizer;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.entities.emoji.Emoji;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import org.apache.commons.lang3.math.NumberUtils;
 import ti4.buttons.Buttons;
 import ti4.helpers.Units.UnitType;
@@ -315,8 +315,13 @@ public class CryypterHelper {
     private static void votcRiderButtons(Player player, List<Button> buttons, boolean play) {
         for (Leader leader : player.getLeaders()) {
             LeaderModel leaderModel = leader.getLeaderModel().orElse(null);
-            if (!leader.isLocked() && "After an agenda is revealed:".equals(leaderModel.getAbilityWindow())) {
+            if (leaderModel != null
+                    && !leader.isLocked()
+                    && "After an agenda is revealed:".equals(leaderModel.getAbilityWindow())) {
                 FactionModel factionModel = Mapper.getFaction(leaderModel.getFaction());
+                if (factionModel == null) {
+                    continue;
+                }
                 String buttonID;
                 if ("hero".equals(leaderModel.getType())) {
                     buttonID = "Keleres Xxcha Hero";

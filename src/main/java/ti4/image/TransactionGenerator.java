@@ -1,6 +1,10 @@
 package ti4.image;
 
-import java.awt.*;
+import java.awt.AlphaComposite;
+import java.awt.BasicStroke;
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.util.List;
 import java.util.function.Function;
@@ -39,7 +43,7 @@ public class TransactionGenerator {
         // Add player 1's color
         String pn1 = "pa_pn_color_" + Mapper.getColorID(p1.getColor()) + ".png";
         BufferedImage color1 =
-                ImageHelper.readScaled(ResourceHelper.getInstance().getPAResource(pn1), pnHeight, pnWidth);
+                ImageHelper.readScaled(ResourceHelper.getInstance().getPAResource(pn1), pnWidth, pnHeight);
         g2.rotate(NEGATIVE_NINETY_DEGREES_RADIANS);
         g2.drawImage(color1, -1 * pnHeight, 0, null);
         g2.rotate(NINETY_DEGREES_RADIANS);
@@ -47,7 +51,7 @@ public class TransactionGenerator {
         // Add player 2's color
         String pn2 = "pa_pn_color_" + Mapper.getColorID(p2.getColor()) + ".png";
         BufferedImage color2 =
-                ImageHelper.readScaled(ResourceHelper.getInstance().getPAResource(pn2), pnHeight, pnWidth);
+                ImageHelper.readScaled(ResourceHelper.getInstance().getPAResource(pn2), pnWidth, pnHeight);
         g2.rotate(NINETY_DEGREES_RADIANS);
         g2.drawImage(color2, height - pnHeight, -1 * width, null);
         g2.rotate(NEGATIVE_NINETY_DEGREES_RADIANS);
@@ -83,7 +87,10 @@ public class TransactionGenerator {
         drawEmojiWithCenteredInt(g2, CardEmojis.PN, p1.getPromissoryNotes().size(), x, y);
         drawEmojiWithCenteredInt(g2, CardEmojis.PN, p2.getPromissoryNotes().size(), width - x - emojiSize, y);
         // ACs
-        if (p1.hasAbility("arbiters") || p2.hasAbility("arbiters")) {
+        if (p1.hasAbility("arbiters")
+                || p2.hasAbility("arbiters")
+                || p1.hasTech("tf-guild_ships")
+                || p2.hasTech("tf-guild_ships")) {
             x += emojiSize + 5;
             drawEmojiWithCenteredInt(
                     g2, CardEmojis.ActionCard, p1.getActionCards().size(), x, y);
@@ -149,7 +156,8 @@ public class TransactionGenerator {
                 sendingNothing = false;
 
                 String thingToTransact = item.split("_")[2];
-                String furtherDetail = item.split("_")[3];
+                String furtherDetail = item.replace(
+                        item.split("_")[0] + "_" + item.split("_")[1] + "_" + item.split("_")[2] + "_", "");
                 int amountToTransact = 1;
                 if ("frags".equalsIgnoreCase(thingToTransact)
                         || (("PNs".equalsIgnoreCase(thingToTransact) || "ACs".equalsIgnoreCase(thingToTransact))

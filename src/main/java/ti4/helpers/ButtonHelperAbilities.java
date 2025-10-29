@@ -1,18 +1,20 @@
 package ti4.helpers;
 
-import static org.apache.commons.lang3.StringUtils.capitalize;
-import static org.apache.commons.lang3.StringUtils.isNotBlank;
+import static org.apache.commons.lang3.StringUtils.*;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.entities.emoji.Emoji;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
+import ti4.ResourceHelper;
 import ti4.buttons.Buttons;
 import ti4.commands.special.SetupNeutralPlayer;
 import ti4.helpers.DiceHelper.Die;
@@ -725,14 +727,14 @@ public class ButtonHelperAbilities {
     }
 
     @ButtonHandler("getOmenDice2")
-    public static void offerOmenDiceButtons2(Game game, Player player, String agent) {
+    public static void offerOmenDiceButtons2(Game game, Player player, String componentID) {
         String msg = player.getRepresentationUnfogged()
                 + " you may play an Omen die with the following buttons. Duplicate dice are not shown.";
         List<Button> buttons = new ArrayList<>();
         List<Integer> dice = new ArrayList<>();
         for (int die : getAllOmenDie(game)) {
             if (!dice.contains(die)) {
-                buttons.add(Buttons.green("useOmenDie_" + die + "_" + agent, "Use Result: " + die));
+                buttons.add(Buttons.green("useOmenDie_" + die + "_" + componentID, "Use Result: " + die));
                 dice.add(die);
             }
         }
@@ -844,6 +846,14 @@ public class ButtonHelperAbilities {
             } else {
                 MessageHelper.sendMessageToChannel(game.getMainGameChannel(), pillagerMessage + "\n" + pillagedMessage);
             }
+            int randomJokeChance = ThreadLocalRandom.current().nextInt(1, 6);
+            if (randomJokeChance == 5) {
+                randomJokeChance = ThreadLocalRandom.current().nextInt(1, 6);
+                File audioFile = ResourceHelper.getFile("voices/mentak/", "Pillage" + randomJokeChance + ".mp3");
+                if (audioFile.exists()) {
+                    MessageHelper.sendFileToChannel(player.getCorrectChannel(), audioFile);
+                }
+            }
             if (player.hasUnexhaustedLeader("mentakagent")) {
                 List<Button> buttons = new ArrayList<>();
                 buttons.add(Buttons.green(
@@ -920,7 +930,7 @@ public class ButtonHelperAbilities {
                 if (unitHolder instanceof Planet) {
                     String planet = unitHolder.getName();
                     boolean alreadyOwned = false;
-                    for (Player player_ : game.getPlayers().values()) {
+                    for (Player player_ : game.getRealPlayers()) {
                         if (player_.getPlanets().contains(planet)) {
                             alreadyOwned = true;
                             break;
@@ -1119,7 +1129,7 @@ public class ButtonHelperAbilities {
         return buttons;
     }
 
-    private static Tile getLocationOfSuperweapon(Game game, String name) {
+    public static Tile getLocationOfSuperweapon(Game game, String name) {
         Tile tile = null;
         for (Tile loc : game.getTileMap().values()) {
             for (UnitHolder uH : loc.getPlanetUnitHolders()) {
@@ -1668,10 +1678,13 @@ public class ButtonHelperAbilities {
         if (player.getPromissoryNotesInPlayArea().contains("sigma_promise_of_protection")) {
             return false;
         }
-        if (Helper.getPlayerFromAbility(game, "pillage") != null
-                && !Helper.getPlayerFromAbility(game, "pillage").getFaction().equalsIgnoreCase(player.getFaction())) {
-            Player pillager = Helper.getPlayerFromAbility(game, "pillage");
-            return tg > 2 && player.getNeighbouringPlayers(true).contains(pillager);
+        for (Player p2 : game.getRealPlayers()) {
+            if (p2 == player || !p2.hasAbility("pillage")) {
+                continue;
+            }
+            if (tg > 2 && player.getNeighbouringPlayers(true).contains(p2)) {
+                return true;
+            }
         }
         return false;
     }
@@ -1757,24 +1770,29 @@ public class ButtonHelperAbilities {
 
     public static void pillageCheck(Player player, Game game) {
         if (canBePillaged(player, game, player.getTg())) {
-            Player pillager = Helper.getPlayerFromAbility(game, "pillage");
-            String finChecker = "FFCC_" + pillager.getFaction() + "_";
-            List<Button> buttons = new ArrayList<>();
-            String playerIdent = player.getRepresentationNoPing();
-            player.getDisplayName();
-            MessageChannel channel = game.getMainGameChannel();
-            if (game.isFowMode()) {
-                playerIdent = capitalize(player.getColor());
-                channel = pillager.getPrivateChannel();
+            for (Player neighbor : player.getNeighbouringPlayers(true)) {
+                if (!neighbor.hasAbility("pillage")) {
+                    continue;
+                }
+                Player pillager = neighbor;
+                String finChecker = "FFCC_" + pillager.getFaction() + "_";
+                List<Button> buttons = new ArrayList<>();
+                String playerIdent = player.getRepresentationNoPing();
+                player.getDisplayName();
+                MessageChannel channel = game.getMainGameChannel();
+                if (game.isFowMode()) {
+                    playerIdent = capitalize(player.getColor());
+                    channel = pillager.getPrivateChannel();
+                }
+                String message = pillager.getRepresentationUnfogged() + " you may have the opportunity to **Pillage** "
+                        + playerIdent
+                        + ". Please check this is a valid **Pillage** opportunity, and use buttons to resolve.";
+                buttons.add(Buttons.red(
+                        finChecker + "pillage_" + player.getColor() + "_unchecked",
+                        "Pillage " + (game.isFowMode() ? playerIdent : player.getFlexibleDisplayName())));
+                buttons.add(Buttons.green(finChecker + "deleteButtons", "Decline Pillage Window"));
+                MessageHelper.sendMessageToChannelWithButtons(channel, message, buttons);
             }
-            String message = pillager.getRepresentationUnfogged() + " you may have the opportunity to **Pillage** "
-                    + playerIdent
-                    + ". Please check this is a valid **Pillage** opportunity, and use buttons to resolve.";
-            buttons.add(Buttons.red(
-                    finChecker + "pillage_" + player.getColor() + "_unchecked",
-                    "Pillage " + (game.isFowMode() ? playerIdent : player.getFlexibleDisplayName())));
-            buttons.add(Buttons.green(finChecker + "deleteButtons", "Decline Pillage Window"));
-            MessageHelper.sendMessageToChannelWithButtons(channel, message, buttons);
         }
     }
 
@@ -1816,9 +1834,20 @@ public class ButtonHelperAbilities {
     public static List<String> getPossibleTechForNekroToGainFromPlayer(
             Player nekro, Player victim, List<String> currentList, Game game) {
         List<String> techToGain = new ArrayList<>(currentList);
+        if (victim.getPromissoryNotesInPlayArea().contains("antivirus")) {
+            return techToGain;
+        }
         for (String tech : victim.getTechs()) {
             if (!nekro.getTechs().contains(tech) && !techToGain.contains(tech) && !"iihq".equalsIgnoreCase(tech)) {
-                techToGain.add(tech);
+                if (!game.playerHasLeaderUnlockedOrAlliance(victim, "bastioncommander")
+                        || !Mapper.getTech(tech).isFactionTech()) {
+                    if (game.isTwilightsFallMode()
+                            || (nekro.hasTech("vax") || nekro.getFactionTechs().contains("vax"))
+                            || (nekro.hasTech("vay") || nekro.getFactionTechs().contains("vay"))
+                            || !Mapper.getTech(tech).isFactionTech()) {
+                        techToGain.add(tech);
+                    }
+                }
             }
         }
         return techToGain;
@@ -1832,6 +1861,90 @@ public class ButtonHelperAbilities {
         MessageHelper.sendMessageToChannel(event.getMessageChannel(), message);
         SleeperTokenHelper.addOrRemoveSleeper(event, game, planet, player);
         event.getMessage().delete().queue();
+    }
+
+    // enterCoexistence_
+
+    @ButtonHandler("enterCoexistence_")
+    public static void enterCoexistence(String buttonID, ButtonInteractionEvent event, Game game, Player player) {
+        event.getMessage().delete().queue();
+        String planet = buttonID.split("_")[1];
+        UnitHolder unitHolder = game.getUnitHolderFromPlanet(planet);
+        Tile tile = game.getTileFromPlanet(planet);
+        List<Player> playersWithUnitsOnPlanet = ButtonHelper.getPlayersWithUnitsOnAPlanet(game, unitHolder);
+        Optional<Player> enemyPlayer = playersWithUnitsOnPlanet.stream()
+                .filter(p -> player != p && !player.isPlayerMemberOfAlliance(p))
+                .findFirst();
+        if (player.getPlanets().contains(planet) && enemyPlayer.isPresent()) {
+            AddPlanetService.addPlanet(enemyPlayer.get(), planet, game);
+        }
+        oceanBoundCheck(game);
+    }
+
+    public static void oceanBoundCheck(Game game) {
+        Player player = Helper.getPlayerFromAbility(game, "oceanbound");
+        if (player != null) {
+            List<String> oceans = player.getOceans();
+            List<String> coexisting = game.getPlanetsPlayerIsCoexistingOn(player);
+            if (oceans.size() != coexisting.size()) {
+                if (oceans.size() > coexisting.size()) {
+                    int dif = oceans.size() - coexisting.size();
+                    int readied = 0;
+                    for (String ocean : oceans) {
+                        if (dif > 0) {
+                            dif--;
+                            if (player.getReadiedPlanets().contains(ocean)) {
+                                readied++;
+                            }
+                            player.removePlanet(ocean);
+                        }
+                        if (readied > 0 && player.getExhaustedPlanets().contains(ocean)) {
+                            player.refreshPlanet(ocean);
+                        }
+                    }
+                    MessageHelper.sendMessageToChannel(
+                            player.getCorrectChannel(),
+                            player.getRepresentation()
+                                    + " your number of oceans reduced down to your number of coexisting planets ("
+                                    + coexisting.size() + ").");
+                } else {
+                    if (oceans.size() < 5) {
+                        int dif = Math.min(5, coexisting.size()) - oceans.size();
+                        for (String planet : coexisting) {
+                            if (dif > 0) {
+                                for (int x = 1; x <= 5; x++) {
+                                    String oceanName = "ocean" + x;
+                                    if (!player.getOceans().contains(oceanName)) {
+                                        player.addPlanet(oceanName);
+                                        player.refreshPlanet(oceanName);
+                                        dif--;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        MessageHelper.sendMessageToChannel(
+                                player.getCorrectChannel(),
+                                player.getRepresentation() + " your number of oceans increased and is now "
+                                        + player.getOceans().size() + ". The new oceans were also readied.");
+                        CommanderUnlockCheckService.checkPlayer(player, "deepwrought");
+                    }
+                }
+            }
+        }
+    }
+
+    @ButtonHandler("startCombatOn_")
+    public static void startCombatOn(String buttonID, ButtonInteractionEvent event, Game game, Player player) {
+        event.getMessage().delete().queue();
+        String planet = buttonID.split("_")[1];
+        UnitHolder unitHolder = game.getUnitHolderFromPlanet(planet);
+        Tile tile = game.getTileFromPlanet(planet);
+        List<Player> playersWithUnitsOnPlanet = ButtonHelper.getPlayersWithUnitsOnAPlanet(game, unitHolder);
+        Optional<Player> enemyPlayer = playersWithUnitsOnPlanet.stream()
+                .filter(p -> player != p && !player.isPlayerMemberOfAlliance(p))
+                .findFirst();
+        StartCombatService.startGroundCombat(player, enemyPlayer.get(), game, event, unitHolder, tile);
     }
 
     @ButtonHandler("replaceSleeperWith_")
@@ -1965,6 +2078,10 @@ public class ButtonHelperAbilities {
             if (player.hasAbility("divination")) {
                 rollOmenDiceAtStartOfStrat(game, player);
             }
+            if (player.hasUnit("tyris_flagship")
+                    && ButtonHelper.getNumberOfUnitsOnTheBoard(game, player, "flagship", false) > 0) {
+                game.setStoredValue("phantomEnergy", game.getStoredValue("phantomEnergy") + "fs");
+            }
             if (player.hasAbility("protocols")) {
                 List<Button> buttons = getAvailableProtocols(player);
                 String sb = player.getRepresentationUnfogged() + ", your **Protocols** ability was triggered."
@@ -1980,7 +2097,7 @@ public class ButtonHelperAbilities {
                         buttons);
             }
 
-            if (!player.hasAbility("council_patronage")) continue;
+            if (!player.hasAbility("council_patronage") && !player.hasTech("tf-puppetcouncil")) continue;
             ButtonHelperStats.gainTGs(event, game, player, 1, true);
             String sb = player.getRepresentationUnfogged() + " your **Council Patronage** ability was triggered. Your "
                     + MiscEmojis.comm + " commodities have been replenished and you have gained 1 "
@@ -1993,31 +2110,36 @@ public class ButtonHelperAbilities {
     }
 
     @ButtonHandler("starforgeTile_")
+    @ButtonHandler("starforgeTileFree_")
     public static void starforgeTile(String buttonID, ButtonInteractionEvent event, Game game, Player player) {
-        String pos = buttonID.replace("starforgeTile_", "");
+        boolean free = buttonID.contains("starforgeTileFree_");
+        String pos = buttonID.replace("starforgeTile_", "").replace("starforgeTileFree_", "");
 
-        String prefix = player.getFinsFactionCheckerPrefix() + "starforge_";
+        String prefix = player.getFinsFactionCheckerPrefix() + "starforge" + (free ? "Free" : "") + "_";
         List<Button> buttons = new ArrayList<>();
         buttons.add(Buttons.red(prefix + "destroyer_" + pos, "Starforge Destroyer", UnitEmojis.destroyer));
         buttons.add(Buttons.red(prefix + "fighters_" + pos, "Starforge 2 Fighters", UnitEmojis.fighter));
-        String message = "Please choose what units you wish to **Starforge**.";
+        String message = "Use the buttons to select what you would like to starforge.";
         MessageHelper.sendMessageToChannelWithButtons(event.getChannel(), message, buttons);
         ButtonHelper.deleteMessage(event);
     }
 
     @ButtonHandler("starforge_")
+    @ButtonHandler("starforgeFree_")
     public static void starforge(String buttonID, ButtonInteractionEvent event, Game game, Player player) {
-        String unitNPlace = buttonID.replace("starforge_", "");
+        boolean free = buttonID.contains("starforgeFree_");
+        String unitNPlace = buttonID.replace("starforge_", "").replace("starforgeFree_", "");
         String unit = unitNPlace.split("_")[0];
         String pos = unitNPlace.split("_")[1];
         Tile tile = game.getTileByPosition(pos);
         String successMessage;
-        if (player.getStrategicCC() > 0) {
+        if (free) {
+            successMessage = null; // no spend message
+        } else if (player.getStrategicCC() > 0) {
             successMessage = player.getRepresentationUnfogged() + " spent 1 strategy token ("
                     + (player.getStrategicCC()) + " -> " + (player.getStrategicCC() - 1) + ")";
             player.setStrategicCC(player.getStrategicCC() - 1);
-            ButtonHelperCommanders.resolveMuaatCommanderCheck(
-                    player, game, event, FactionEmojis.Muaat + " **Starforge**'d");
+            ButtonHelperCommanders.resolveMuaatCommanderCheck(player, game, event, FactionEmojis.Muaat + "Starforge");
         } else {
             player.addExhaustedRelic("emelpar");
             successMessage =
@@ -2368,6 +2490,16 @@ public class ButtonHelperAbilities {
             ObjectiveHelper.secondHalfOfPeakStage2(game, player, 1);
         }
         ButtonHelper.deleteMessage(event);
+    }
+
+    @ButtonHandler("foretellPeak_")
+    public static void foretellPeak(ButtonInteractionEvent event, Player player, String buttonID, Game game) {
+        if ("1".equalsIgnoreCase(buttonID.split("_")[1])) {
+            ObjectiveHelper.secondHalfOfPeakStage1(game, player, Integer.parseInt(buttonID.split("_")[2]));
+        } else {
+            ObjectiveHelper.secondHalfOfPeakStage2(game, player, Integer.parseInt(buttonID.split("_")[2]));
+        }
+        ButtonHelper.deleteTheOneButton(event);
     }
 
     @ButtonHandler("initialPeak")

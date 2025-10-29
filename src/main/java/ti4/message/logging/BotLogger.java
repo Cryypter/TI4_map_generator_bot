@@ -13,14 +13,15 @@ import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEve
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.exceptions.ErrorResponseException;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import ti4.AsyncTI4DiscordBot;
 import ti4.cron.CronManager;
-import ti4.helpers.Constants;
 import ti4.helpers.DateTimeHelper;
 import ti4.helpers.DiscordWebhook;
 import ti4.helpers.ThreadArchiveHelper;
 import ti4.message.MessageHelper;
+import ti4.service.statistics.SREStats;
 import ti4.settings.GlobalSettings;
+import ti4.settings.GlobalSettings.ImplementedSettings;
+import ti4.spring.jda.JdaService;
 
 @UtilityClass
 public class BotLogger {
@@ -32,6 +33,13 @@ public class BotLogger {
     private static final int SECONDS_TO_WAIT_BEFORE_QUEUEING_STACKTRACE = 15;
 
     private static volatile long lastScheduledWebhook;
+
+    /**
+     * Initialize the BotLogger system. Should be called once at bot startup.
+     */
+    public static void init() {
+        getBotLogWebhookURL(); // Ensure webhook is created at startup if required
+    }
 
     /**
      * Sends a message to the primary server's webhook.
@@ -93,6 +101,10 @@ public class BotLogger {
      */
     public static void warning(@Nonnull String message, @Nullable Throwable err) {
         logToChannel(null, message, err, LogSeverity.Warning);
+    }
+
+    public static void warning(@Nonnull LogOrigin logOrigin, @Nonnull String message, @Nullable Throwable err) {
+        logToChannel(logOrigin, message, err, LogSeverity.Warning);
     }
 
     /**
@@ -160,6 +172,11 @@ public class BotLogger {
             @Nonnull String message,
             @Nullable Throwable err,
             @Nonnull LogSeverity severity) {
+        // Count Error-severity logs once per entry
+        if (severity == LogSeverity.Error) {
+            SREStats.incrementErrorCount();
+        }
+
         TextChannel channel;
         StringBuilder msg = new StringBuilder();
 
@@ -200,7 +217,7 @@ public class BotLogger {
                 if (channel == null) scheduleWebhookMessage(msgChunk); // Send message on webhook
                 else channel.sendMessage(msgChunk).queue(); // Send message on channel
             } else { // Handle error on last send
-                ThreadArchiveHelper.checkThreadLimitAndArchive(AsyncTI4DiscordBot.guildPrimary);
+                ThreadArchiveHelper.checkThreadLimitAndArchive(JdaService.guildPrimary);
 
                 if (channel == null) {
                     scheduleWebhookMessage(msgChunk); // Send message on webhook
@@ -242,18 +259,38 @@ public class BotLogger {
         }
     }
 
-    private static void sendMessageToBotLogWebhook(String message) {
-        String botLogWebhookURL =
-                switch (AsyncTI4DiscordBot.guildPrimaryID) {
-                    case Constants.ASYNCTI4_HUB_SERVER_ID -> // AsyncTI4 Primary HUB Production Server
-                        "https://discord.com/api/webhooks/1106562763708432444/AK5E_Nx3Jg_JaTvy7ZSY7MRAJBoIyJG8UKZ5SpQKizYsXr57h_VIF3YJlmeNAtuKFe5v";
-                    case "1059645656295292968" -> // PrisonerOne's Test Server
-                        "https://discord.com/api/webhooks/1159478386998116412/NiyxcE-6TVkSH0ACNpEhwbbEdIBrvTWboZBTwuooVfz5n4KccGa_HRWTbCcOy7ivZuEp";
-                    case null, default -> null;
-                };
-
+    private static String getBotLogWebhookURL() {
+        String botLogWebhookURL = GlobalSettings.getSetting(
+                GlobalSettings.ImplementedSettings.BOT_LOG_WEBHOOK_URL.toString(), String.class, null);
         if (botLogWebhookURL == null) {
-            System.out.println("\"ERROR: Unable to get url for bot-log webhook\n " + message);
+            System.out.println("ERROR: Unable to get url for bot-log webhook. Attempting to create one.");
+        } else {
+            return botLogWebhookURL;
+        }
+
+        // try and create a webhook
+        TextChannel channel = getLogChannel(LogSeverity.Info);
+        if (channel == null) {
+            System.out.println("ERROR: Unable to create bot-log webhook, no bot-log-error channel found.");
+            return null;
+        }
+        try {
+            botLogWebhookURL =
+                    channel.createWebhook("AsyncTI4 BotLogger").complete().getUrl();
+            GlobalSettings.setSetting(ImplementedSettings.BOT_LOG_WEBHOOK_URL, botLogWebhookURL);
+            System.out.println("Created bot-log webhook successfully: " + botLogWebhookURL);
+            info("Created bot-log webhook successfully: " + botLogWebhookURL);
+        } catch (Exception e) {
+            botLogWebhookURL = null;
+            System.out.println("ERROR: Failed to create bot-log webhook. Exception: " + e.getMessage());
+        }
+        return botLogWebhookURL;
+    }
+
+    private static void sendMessageToBotLogWebhook(String message) {
+        String botLogWebhookURL = getBotLogWebhookURL();
+        if (botLogWebhookURL == null) {
+            System.out.println("ERROR: NO WEBHOOK FOUND TO SEND ERROR MESSAGE: " + message);
             return;
         }
         DiscordWebhook webhook = new DiscordWebhook(botLogWebhookURL);
@@ -261,7 +298,10 @@ public class BotLogger {
         try {
             webhook.execute();
         } catch (Exception exception) {
-            System.out.println("[BOT-LOG-WEBHOOK] " + message + "\n" + exception.getMessage());
+            System.out.println(
+                    "[BOT-LOG-WEBHOOK] WARNING Failed to execute webhook. This error message will not get posted to the bot-log channel."
+                            + "\nMessage:\n> " + message
+                            + "\nException:\n> " + exception.getMessage());
         }
     }
 
@@ -271,6 +311,10 @@ public class BotLogger {
 
     public static void logSlashCommand(SlashCommandInteractionEvent event, Message commandResponseMessage) {
         LogBufferManager.addLogMessage(new SlashCommandEventLog(new LogOrigin(event), commandResponseMessage));
+    }
+
+    public static void logCron(String message) {
+        LogBufferManager.addLogMessage(new CronEventLog(message));
     }
 
     public static void catchRestError(Throwable e) {
@@ -300,7 +344,7 @@ public class BotLogger {
      */
     @Nullable
     private TextChannel getLogChannel(@Nonnull LogSeverity severity) {
-        Guild guild = AsyncTI4DiscordBot.guildPrimary;
+        Guild guild = JdaService.guildPrimary;
         if (guild == null) return null;
 
         return guild.getTextChannelsByName(severity.channelName, false).stream()

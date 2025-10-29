@@ -15,13 +15,7 @@ public class SabotageService {
             return false;
         }
 
-        if (player.hasTechReady("it") && (player.getStrategicCC() > 0 || player.hasRelicReady("emelpar"))) {
-            return true;
-        }
-
-        if (player.hasUnit("empyrean_mech")
-                && !CheckUnitContainmentService.getTilesContainingPlayersUnits(game, player, Units.UnitType.Mech)
-                        .isEmpty()) {
+        if (couldUseInstinctTraining(player) || couldUseWatcherMech(player, game)) {
             return true;
         }
 
@@ -30,7 +24,24 @@ public class SabotageService {
             return false;
         }
 
+        if (player.isPassed()
+                && game.getActivePlayer() != null
+                && (game.getActivePlayer().hasTech("tp")
+                        || game.getActivePlayer().hasTech("tf-crafty"))) {
+            return false;
+        }
+
         return !allSabotagesAreDiscarded(game) && !allAcd2SabotagesAreDiscarded(game);
+    }
+
+    public static boolean couldUseInstinctTraining(Player player) {
+        return player.hasTechReady("it") && (player.getStrategicCC() > 0 || player.hasRelicReady("emelpar"));
+    }
+
+    public static boolean couldUseWatcherMech(Player player, Game game) {
+        return player.hasUnit("empyrean_mech")
+                && !CheckUnitContainmentService.getTilesContainingPlayersUnits(game, player, Units.UnitType.Mech)
+                        .isEmpty();
     }
 
     private static boolean allSabotagesAreDiscarded(Game game) {
@@ -54,6 +65,12 @@ public class SabotageService {
 
         if (player.hasUnit("empyrean_mech")
                 && !CheckUnitContainmentService.getTilesContainingPlayersUnits(game, player, Units.UnitType.Mech)
+                        .isEmpty()) {
+            return true;
+        }
+
+        if (player.hasUnit("tf-triune")
+                && !CheckUnitContainmentService.getTilesContainingPlayersUnits(game, player, Units.UnitType.Fighter)
                         .isEmpty()) {
             return true;
         }

@@ -41,6 +41,7 @@ public class FactionModel implements ModelInterface, EmbeddableModel {
     private String factionReferenceImageURL;
     private String wikiURL;
     private List<String> preferredColours;
+    private Integer priorityNumber;
 
     public boolean isValid() {
         return alias != null
@@ -64,7 +65,7 @@ public class FactionModel implements ModelInterface, EmbeddableModel {
     }
 
     public String getShortName() {
-        return Optional.ofNullable(shortName).orElse(factionName.replace("The ", ""));
+        return Optional.ofNullable(shortName).orElse(StringUtils.capitalize(alias));
     }
 
     public String getShortTag() {

@@ -12,9 +12,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.channel.concrete.ThreadChannel;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import org.apache.commons.lang3.StringUtils;
 import ti4.buttons.Buttons;
 import ti4.helpers.ThreadArchiveHelper;
@@ -28,7 +28,7 @@ public class FowCommunicationThreadService {
 
     private static final String YES_CHAR = "↔";
     private static final String NO_CHAR = "X";
-    private static final Pattern THREAD_NAME_PATTERN =
+    public static final Pattern THREAD_NAME_PATTERN =
             Pattern.compile("^(\\w+)\\s*(?:" + YES_CHAR + "|" + NO_CHAR + ")\\s*(\\w+)");
 
     public static boolean isActive(Game game) {
@@ -88,7 +88,7 @@ public class FowCommunicationThreadService {
         return player.getNeighbouringPlayers(true);
     }
 
-    private static CompletableFuture<List<ThreadChannel>> getGameThreadChannels(Game game) {
+    public static CompletableFuture<List<ThreadChannel>> getGameThreadChannels(Game game) {
         CompletableFuture<List<ThreadChannel>> future = new CompletableFuture<>();
 
         List<ThreadChannel> result = new ArrayList<>(game.getMainGameChannel().getThreadChannels());

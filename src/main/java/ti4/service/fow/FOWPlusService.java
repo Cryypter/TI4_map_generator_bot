@@ -6,13 +6,14 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import net.dv8tion.jda.api.components.buttons.Button;
+import net.dv8tion.jda.api.components.label.Label;
+import net.dv8tion.jda.api.components.textinput.TextInput;
+import net.dv8tion.jda.api.components.textinput.TextInputStyle;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
-import net.dv8tion.jda.api.interactions.components.text.TextInput;
-import net.dv8tion.jda.api.interactions.components.text.TextInputStyle;
-import net.dv8tion.jda.api.interactions.modals.Modal;
+import net.dv8tion.jda.api.modals.Modal;
 import org.apache.commons.lang3.StringUtils;
 import ti4.buttons.Buttons;
 import ti4.commands.commandcounter.RemoveCommandCounterService;
@@ -68,6 +69,44 @@ public class FOWPlusService {
         return game.getFowOption(FOWOption.FOW_PLUS);
     }
 
+    public static void setActive(Game game, boolean active) {
+        game.setFowOption(FOWOption.FOW_PLUS, active);
+        toggleTag(game, active);
+
+        if (active) {
+            game.setFowOption(FOWOption.ALLOW_AGENDA_COMMS, false);
+            game.setFowOption(FOWOption.HIDE_TOTAL_VOTES, true);
+            game.setFowOption(FOWOption.HIDE_VOTE_ORDER, true);
+            game.setFowOption(FOWOption.STATS_FROM_HS_ONLY, true);
+            game.setFowOption(FOWOption.HIDE_EXPLORES, true);
+            game.setFowOption(FOWOption.HIDE_MAP, true);
+            game.setFowOption(FOWOption.HIDE_PLAYER_INFOS, true);
+            game.setExplorationDeckID("explores_fowplus");
+
+            MessageHelper.sendMessageToChannel(
+                    GMService.getGMChannel(game),
+                    "### FoW+ mode activated. Following options are forced:\n"
+                            + "- No comms in agenda phase\n"
+                            + "- Hide total votes\n"
+                            + "- Hide vote order\n"
+                            + "- Player stats only visible from HS\n"
+                            + "- Hide explore/relic decks\n"
+                            + "- Hide unexplored (0b) map tiles\n"
+                            + "- Hide anchored player info areas\n"
+                            + "### In addition, following changes are in effect:\n"
+                            + "- Can only activate tiles you can see (Blind Tile button to activate any other tile)\n"
+                            + "- Activating a tile without a tile is valid and will send ships into The Void\n"
+                            + "- Cannot remove tokens from tiles you cannot see\n"
+                            + "- Explore deck set to `explores_fowplus`");
+        } else {
+            MessageHelper.sendMessageToChannel(
+                    GMService.getGMChannel(game),
+                    "### FoW+ mode disabled.\n"
+                            + "Use `/fow fow_options` to reset options.\n"
+                            + "Use `/game set_deck` to reset explore deck.");
+        }
+    }
+
     public static void toggleTag(Game game, boolean active) {
         if (active) {
             game.addTag(FOWPLUS_TAG);
@@ -98,12 +137,12 @@ public class FOWPlusService {
 
     @ButtonHandler("blindTileSelection~MDL")
     public static void offerBlindActivation(ButtonInteractionEvent event, Player player, String buttonID, Game game) {
-        TextInput position = TextInput.create(Constants.POSITION, "Position to activate", TextInputStyle.SHORT)
+        TextInput position = TextInput.create(Constants.POSITION, TextInputStyle.SHORT)
                 .setRequired(true)
                 .build();
 
         Modal blindActivationModal = Modal.create("blindActivation_" + event.getMessageId(), "Activate a blind tile")
-                .addActionRow(position)
+                .addComponents(Label.of("Position to activate", position))
                 .build();
 
         event.replyModal(blindActivationModal).queue();
@@ -144,10 +183,10 @@ public class FOWPlusService {
                 || centerTile != null
                         && centerTile.getTileModel() != null
                         && centerTile.getTileModel().isHyperlane()) {
-            ringButtons.removeIf(b -> b.getId().contains("ringTile_000"));
+            ringButtons.removeIf(b -> b.getCustomId().contains("ringTile_000"));
         }
         if (Collections.disjoint(visiblePositions, Arrays.asList("tl", "tr", "bl", "br"))) {
-            ringButtons.removeIf(b -> b.getId().contains("ring_corners"));
+            ringButtons.removeIf(b -> b.getCustomId().contains("ring_corners"));
         }
         for (Button button : new ArrayList<>(ringButtons)) {
             if (button.getLabel().startsWith("Ring #")) {
@@ -192,13 +231,13 @@ public class FOWPlusService {
 
     // If the target position is void or hyperlane that does not connect to tile we are checking from
     public static boolean shouldTraverseAdjacency(Game game, String position, int dirFrom) {
-        if (!isActive(game)) return true;
+        if (!isActive(game) && !game.getFowOption(FOWOption.HIDE_MAP)) return true;
 
-        if (isVoid(game, position)) {
+        Tile targetTile = game.getTileByPosition(position);
+        if (isVoid(game, position) || targetTile == null) {
             return false;
         }
 
-        Tile targetTile = game.getTileByPosition(position);
         if (targetTile.getTileModel() != null && targetTile.getTileModel().isHyperlane()) {
             boolean hasHyperlaneConnection = false;
             for (int i = 0; i < 6; i++) {

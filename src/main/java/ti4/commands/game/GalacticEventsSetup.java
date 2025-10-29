@@ -1,13 +1,18 @@
 package ti4.commands.game;
 
+import java.util.ArrayList;
+import java.util.List;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
+import ti4.buttons.Buttons;
 import ti4.commands.GameStateSubcommand;
 import ti4.helpers.Constants;
 import ti4.map.Game;
 import ti4.map.Player;
+import ti4.message.MessageHelper;
 
 class GalacticEventsSetup extends GameStateSubcommand {
 
@@ -43,6 +48,14 @@ class GalacticEventsSetup extends GameStateSubcommand {
                 OptionType.BOOLEAN,
                 Constants.DANGEROUS_WILDS_MODE,
                 "True to enable Dangerous Wilds, per Thunders Edge."));
+        addOptions(new OptionData(
+                OptionType.BOOLEAN, Constants.ADVENT_OF_THE_WARSUN_MODE, "True to enable, per Thunders Edge."));
+        addOptions(new OptionData(
+                OptionType.BOOLEAN, Constants.MERCENARIES_FOR_HIRE_MODE, "True to enable, per Thunders Edge."));
+        addOptions(new OptionData(
+                OptionType.BOOLEAN, Constants.ZEALOUS_ORTHODOXY_MODE, "True to enable, per Thunders Edge."));
+        addOptions(new OptionData(
+                OptionType.BOOLEAN, Constants.CULTURAL_EXCHANGE_PROGRAM_MODE, "True to enable, per Thunders Edge."));
     }
 
     @Override
@@ -56,7 +69,17 @@ class GalacticEventsSetup extends GameStateSubcommand {
         if (explorationMode != null) game.setAgeOfExplorationMode(explorationMode);
 
         Boolean minorMode = event.getOption(Constants.MINOR_FACTIONS_MODE, null, OptionMapping::getAsBoolean);
-        if (minorMode != null) game.setMinorFactionsMode(minorMode);
+        if (minorMode != null) {
+            game.setMinorFactionsMode(minorMode);
+            if (minorMode) {
+                List<Button> mfButtons = new ArrayList<>();
+                mfButtons.add(Buttons.blue("addMinorFactionsInfantry", "Add Minor Factions Infantry"));
+                MessageHelper.sendMessageToChannel(
+                        event.getMessageChannel(),
+                        "After setting up the map, use this button to auto populate the neutral infantry",
+                        mfButtons);
+            }
+        }
 
         Boolean agendaMode = event.getOption(Constants.HIDDEN_AGENDA_MODE, null, OptionMapping::getAsBoolean);
         if (agendaMode != null) game.setHiddenAgendaMode(agendaMode);
@@ -69,6 +92,18 @@ class GalacticEventsSetup extends GameStateSubcommand {
 
         Boolean fighterMode = event.getOption(Constants.AGE_OF_FIGHTERS_MODE, null, OptionMapping::getAsBoolean);
         if (fighterMode != null) game.setAgeOfFightersMode(fighterMode);
+
+        Boolean advent = event.getOption(Constants.ADVENT_OF_THE_WARSUN_MODE, null, OptionMapping::getAsBoolean);
+        if (advent != null) game.setAdventOfTheWarsunMode(advent);
+
+        Boolean merc = event.getOption(Constants.MERCENARIES_FOR_HIRE_MODE, null, OptionMapping::getAsBoolean);
+        if (merc != null) game.setMercenariesForHireMode(merc);
+
+        Boolean zeal = event.getOption(Constants.ZEALOUS_ORTHODOXY_MODE, null, OptionMapping::getAsBoolean);
+        if (zeal != null) game.setZealousOrthodoxyMode(zeal);
+
+        Boolean cult = event.getOption(Constants.CULTURAL_EXCHANGE_PROGRAM_MODE, null, OptionMapping::getAsBoolean);
+        if (cult != null) game.setCulturalExchangeProgramMode(cult);
 
         Boolean dangerousWildsMode = event.getOption(Constants.DANGEROUS_WILDS_MODE, null, OptionMapping::getAsBoolean);
         if (dangerousWildsMode != null) game.setDangerousWildsMode(dangerousWildsMode);

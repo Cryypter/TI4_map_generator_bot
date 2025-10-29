@@ -1,6 +1,6 @@
 package ti4.helpers;
 
-import static org.apache.commons.lang3.StringUtils.isNotBlank;
+import static org.apache.commons.lang3.StringUtils.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -9,9 +9,9 @@ import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import ti4.buttons.Buttons;
 import ti4.commands.commandcounter.RemoveCommandCounterService;
 import ti4.commands.planet.PlanetExhaust;
@@ -437,7 +437,7 @@ public class ButtonHelperCommanders {
                 + " Automatically used Tungstantus, the Ul commander, to gain 1 trade good " + player.gainTG(1) + ".";
         if (Helper.getPlayerFromAbility(game, "pillage") != null) {
             msg += "\nThis trade good can be spent before " + FactionEmojis.Mentak
-                    + "**Pillage** resolves, since it is a \"when\".";
+                    + "**Pillage** resolves, since the gaining occurs at the same time as the spending.";
         }
         ButtonHelperAbilities.pillageCheck(player, game);
         ButtonHelperAgents.resolveArtunoCheck(player, 1);
@@ -472,10 +472,12 @@ public class ButtonHelperCommanders {
         String pos = buttonID.split("_")[1];
         Tile tile = game.getTileByPosition(pos);
         AddUnitService.addUnits(event, tile, game, player.getColor(), "fighter");
+        player.setGhostCommanderCounter(player.getGhostCommanderCounter() + 1);
         MessageHelper.sendMessageToChannel(
                 player.getCorrectChannel(),
                 player.getFactionEmoji() + " placed 1 fighter in " + tile.getRepresentation()
-                        + " using Sai Seravus, the Creuss commander.");
+                        + " using Sai Seravus, the Creuss commander. (Placing a total of "
+                        + player.getGhostCommanderCounter() + " fighters over the course of this game)");
     }
 
     @ButtonHandler("placeKhraskCommanderInf_")
@@ -683,7 +685,7 @@ public class ButtonHelperCommanders {
 
     public static void resolveMuaatCommanderCheck(
             Player player, Game game, GenericInteractionCreateEvent event, String reason) {
-        if (game.playerHasLeaderUnlockedOrAlliance(player, "muaatcommander")) {
+        if (game.playerHasLeaderUnlockedOrAlliance(player, "muaatcommander") || player.hasTech("tf-stellargenesis")) {
             if (!ButtonHelperAbilities.canBePillaged(player, game, player.getTg() + 1) || game.isFowMode()) {
                 String message = player.getRepresentationUnfogged()
                         + " you gained a trade good from Magmus, the Muaat Commander, " + player.gainTG(1)
@@ -715,6 +717,16 @@ public class ButtonHelperCommanders {
                                         + " due to spending a strategy token.");
                     }
                 }
+            }
+        }
+        if (player.hasTech("tf-peaceaccords")) {
+            List<Button> buttons2 = ButtonHelperAbilities.getXxchaPeaceAccordsButtons(
+                    game, player, event, player.getFinsFactionCheckerPrefix());
+            if (!buttons2.isEmpty()) {
+                MessageHelper.sendMessageToChannelWithButtons(
+                        player.getCorrectChannel(),
+                        player.getRepresentationUnfogged() + ", please resolve **Peace Accords**.",
+                        buttons2);
             }
         }
     }
@@ -903,10 +915,8 @@ public class ButtonHelperCommanders {
             Game game, Player player, GenericInteractionCreateEvent event) {
         Tile tile = game.getTileByPosition(game.getActiveSystem());
         List<Button> buttons = new ArrayList<>();
-        for (UnitHolder planetUnit : tile.getUnitHolders().values()) {
-            if ("space".equalsIgnoreCase(planetUnit.getName())) {
-                continue;
-            }
+        for (UnitHolder planetUnit : tile.getPlanetUnitHolders()) {
+
             Planet planetReal = (Planet) planetUnit;
             String planetId = planetReal.getName();
             String planetName = Helper.getPlanetName(planetId);
@@ -918,10 +928,7 @@ public class ButtonHelperCommanders {
                         && tile2 != tile) {
                     continue;
                 }
-                for (UnitHolder planetUnit2 : tile2.getUnitHolders().values()) {
-                    if ("space".equalsIgnoreCase(planetUnit2.getName())) {
-                        continue;
-                    }
+                for (UnitHolder planetUnit2 : tile2.getPlanetUnitHolders()) {
                     Planet planetReal2 = (Planet) planetUnit2;
                     int numMechs = 0;
                     int numInf = 0;

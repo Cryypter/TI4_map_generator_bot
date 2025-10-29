@@ -6,9 +6,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import lombok.experimental.UtilityClass;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.concrete.ThreadChannel;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import ti4.buttons.Buttons;
 import ti4.helpers.ButtonHelper;
 import ti4.helpers.CommandCounterHelper;
@@ -30,6 +30,7 @@ public class StatusCleanupService {
     public void runStatusCleanup(Game game) {
         game.removeStoredValue("deflectedSC");
         game.removeStoredValue("pharadnPNUsed");
+        game.removeStoredValue("willParticipateInSplice");
         Map<String, Tile> tileMap = game.getTileMap();
         for (Tile tile : tileMap.values()) {
             for (Player toldar : game.getRealPlayers()) {
@@ -71,8 +72,11 @@ public class StatusCleanupService {
         closeRoundThreads(game);
 
         Map<String, Player> players = game.getPlayers();
-
+        if (ButtonHelper.isLawInPlay(game, "tf-censure")) {
+            game.removeLaw("tf-censure");
+        }
         for (Player player : players.values()) {
+
             player.setPassed(false);
             Set<Integer> SCs = player.getSCs();
             for (int sc : SCs) {
@@ -81,6 +85,7 @@ public class StatusCleanupService {
             player.setInRoundTurnCount(0);
             player.clearSCs();
             player.clearFollowedSCs();
+            player.setBreakthroughExhausted(false);
             RefreshCardsService.refreshPlayerCards(game, player, true);
             game.removeStoredValue("passOnAllWhensNAfters" + player.getFaction());
             game.removeStoredValue(player.getFaction() + "scpickqueue");

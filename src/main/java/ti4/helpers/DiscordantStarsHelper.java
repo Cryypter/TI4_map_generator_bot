@@ -5,9 +5,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import ti4.buttons.Buttons;
 import ti4.helpers.Units.UnitType;
 import ti4.image.Mapper;
@@ -48,6 +48,34 @@ public class DiscordantStarsHelper {
                         }
                     } else if (planet.getTokenList().contains(Constants.GARDEN_WORLDS_PNG)) {
                         planet.removeToken(Constants.GARDEN_WORLDS_PNG);
+                    }
+                }
+            }
+        }
+    }
+
+    public static void checkTFTerraform(Game game) {
+        List<String> planets = new ArrayList<>();
+        for (Player player : game.getRealPlayers()) {
+            if (player.hasTech("tf-terraform")) {
+
+                for (Tile tile : game.getTileMap().values()) {
+                    for (UnitHolder unitHolder : tile.getUnitHolders().values()) {
+                        if (unitHolder instanceof Planet planet) {
+                            if (player.getPlanets().contains(planet.getName())) {
+                                if (!planet.hasStructures(game)
+                                        && planet.getTokenList().contains("attachment_threetraits.png")) {
+                                    planet.removeToken("attachment_threetraits.png");
+                                } else if (planet.hasStructures(game)) {
+                                    planet.addToken("attachment_threetraits.png");
+                                    planets.add(planet.getName());
+                                }
+                            } else if (planet.getTokenList().contains("attachment_threetraits.png")
+                                    && !planets.contains(planet.getName())) {
+
+                                planet.removeToken("attachment_threetraits.png");
+                            }
+                        }
                     }
                 }
             }
@@ -120,6 +148,32 @@ public class DiscordantStarsHelper {
                                 planet.addToken(tokenToAdd);
                                 planet.removeToken(tokenToRemove);
                             }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    public static void checkUltimateAuthority(Game activeMap) {
+        for (Player player : activeMap.getPlayers().values()) {
+            String tokenToAdd;
+            String tokenToRemove;
+            if (player.hasAbility("ultimate_authority")) {
+                tokenToAdd = Constants.OLRADIN_MECH_INF_PNG;
+                tokenToRemove = Constants.OLRADIN_MECH_INF_PNG;
+            } else {
+                continue;
+            }
+
+            for (Tile tile : activeMap.getTileMap().values()) {
+                for (UnitHolder unitHolder : tile.getUnitHolders().values()) {
+                    if (unitHolder instanceof Planet planet) {
+                        if (planet.getUnitCount(player.getColorID()) > 2
+                                && player.getPlanetsAllianceMode().contains(planet.getName())) {
+                            planet.addToken(tokenToAdd);
+                        } else {
+                            planet.removeToken(tokenToRemove);
                         }
                     }
                 }

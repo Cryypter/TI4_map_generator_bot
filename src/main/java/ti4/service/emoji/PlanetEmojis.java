@@ -5,8 +5,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
+import javax.annotation.Nullable;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 public enum PlanetEmojis implements TI4Emoji {
 
@@ -47,7 +47,7 @@ public enum PlanetEmojis implements TI4Emoji {
     Darien, // Yin
     Retillion,
     Shalloq, // Yssaril
-
+    SpaceStation, // Space Station
     // Base/PoK non-home
     Ang,
     ArchonVail,

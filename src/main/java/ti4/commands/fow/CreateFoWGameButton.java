@@ -2,13 +2,13 @@ package ti4.commands.fow;
 
 import java.util.ArrayList;
 import java.util.List;
+import net.dv8tion.jda.api.components.actionrow.ActionRow;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
-import net.dv8tion.jda.api.interactions.components.ActionRow;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import ti4.buttons.Buttons;
 import ti4.commands.Subcommand;
@@ -16,6 +16,7 @@ import ti4.helpers.Constants;
 import ti4.message.MessageHelper;
 import ti4.service.fow.CreateFoWGameService;
 import ti4.service.game.CreateGameService;
+import ti4.spring.jda.JdaService;
 
 class CreateFoWGameButton extends Subcommand {
 
@@ -39,6 +40,11 @@ class CreateFoWGameButton extends Subcommand {
         Member gm = CreateFoWGameService.getGM(event);
         List<Member> members = CreateFoWGameService.getPlayers(event);
         String gameFunName = event.getOption(Constants.GAME_FUN_NAME).getAsString();
+
+        if (!JdaService.fowServers.isEmpty() && !JdaService.fowServers.contains(event.getGuild())) {
+            MessageHelper.sendMessageToEventChannel(event, "This command can only be run in a FoW Server");
+            return;
+        }
 
         Guild guild = CreateFoWGameService.findFoWGuildWithSpace(event.getGuild(), members.size() + 1);
         if (guild == null) {

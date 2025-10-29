@@ -9,13 +9,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.channel.Channel;
 import net.dv8tion.jda.api.entities.channel.concrete.ThreadChannel;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import net.dv8tion.jda.api.events.interaction.command.GenericCommandInteractionEvent;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import software.amazon.awssdk.utils.StringUtils;
 import ti4.helpers.Units.UnitKey;
 import ti4.helpers.Units.UnitType;
@@ -27,6 +27,7 @@ import ti4.map.Tile;
 import ti4.map.UnitHolder;
 import ti4.map.persistence.GameManager;
 import ti4.message.MessageHelper;
+import ti4.message.logging.BotLogger;
 import ti4.model.BorderAnomalyHolder;
 import ti4.model.WormholeModel;
 import ti4.service.combat.StartCombatService;
@@ -132,6 +133,8 @@ public class FoWHelper {
             return;
         }
 
+        player.setFogInitialized(true);
+
         // Get all tiles with the player in it
         Set<String> tilesWithPlayerUnitsPlanets = new HashSet<>();
         for (Map.Entry<String, Tile> tileEntry : new HashMap<>(game.getTileMap()).entrySet()) {
@@ -156,7 +159,6 @@ public class FoWHelper {
         }
 
         updatePlayerFogTiles(game, player);
-        player.setFogInitialized(true);
     }
 
     public static Set<String> getTilePositionsToShow(Game game, @NotNull Player player) {
@@ -189,6 +191,11 @@ public class FoWHelper {
 
     private static void updatePlayerFogTiles(Game game, Player player) {
         for (Tile tileToUpdate : game.getTileMap().values()) {
+            if (!tileToUpdate.isValid()) {
+                BotLogger.warning(
+                        String.format("Tile %s is not valid in game %s", tileToUpdate.getTileID(), game.getName()));
+                continue;
+            }
             if (!tileToUpdate.hasFog(player)
                     || tileToUpdate.isSupernova() && game.getFowOption(FOWOption.BRIGHT_NOVAS)) {
                 player.updateFogTile(tileToUpdate, "Rnd " + game.getRound());
@@ -261,6 +268,9 @@ public class FoWHelper {
         Set<String> wormholeAdjacencies = getWormholeAdjacencies(game, position, player);
         adjacentPositions.addAll(wormholeAdjacencies);
 
+        Set<String> otherAdjacencies = getNonWormholeAdjacencies(game, position, player);
+        adjacentPositions.addAll(otherAdjacencies);
+
         // If player has ghoti commander, is active player and has activated a system
         if (player != null
                 && game.playerHasLeaderUnlockedOrAlliance(player, "ghoticommander")
@@ -290,6 +300,66 @@ public class FoWHelper {
             adjacentPositions.add(position);
         } else {
             adjacentPositions.remove(position);
+        }
+        return adjacentPositions;
+    }
+
+    private static Set<String> getNonWormholeAdjacencies(Game game, String position, Player player) {
+        enum Feature {
+            ingress,
+            egress,
+            breach,
+            scar;
+        }
+
+        Set<String> adjacentPositions = new HashSet<>();
+        Set<Tile> allTiles = new HashSet<>(game.getTileMap().values());
+        Tile tile = game.getTileByPosition(position);
+
+        Set<Feature> adjToFeatures = new HashSet<>();
+        for (String alias : tile.getTileModel().getAliases()) {
+            if (alias.startsWith("egress")) adjToFeatures.add(Feature.ingress);
+        }
+
+        if (game.isCosmicPhenomenaeMode()) {
+            if (tile.isScar()) {
+                adjToFeatures.add(Feature.scar);
+            }
+        }
+
+        for (UnitHolder unitHolder : tile.getUnitHolders().values()) {
+            for (String token : unitHolder.getTokenList()) {
+                switch (token) {
+                    case Constants.TOKEN_BREACH_ACTIVE -> adjToFeatures.add(Feature.breach);
+                    case Constants.TOKEN_INGRESS -> adjToFeatures.add(Feature.egress);
+                }
+            }
+        }
+
+        for (Tile t : allTiles) {
+            if (adjToFeatures.contains(Feature.egress)
+                    && t.getTileModel().getAliases().stream().anyMatch(x -> x.startsWith("egress"))) {
+                adjacentPositions.add(t.getPosition());
+                continue;
+            }
+            if (game.isCosmicPhenomenaeMode()) {
+                if (adjToFeatures.contains(Feature.scar) && t.isScar()) {
+                    adjacentPositions.add(t.getPosition());
+                    continue;
+                }
+            }
+            for (UnitHolder unitHolder : t.getUnitHolders().values()) {
+                for (String token : unitHolder.getTokenList()) {
+                    if (adjToFeatures.contains(Feature.breach) && token.equals(Constants.TOKEN_BREACH_ACTIVE)) {
+                        adjacentPositions.add(t.getPosition());
+                        break;
+                    }
+                    if (adjToFeatures.contains(Feature.ingress) && token.equals(Constants.TOKEN_INGRESS)) {
+                        adjacentPositions.add(t.getPosition());
+                        break;
+                    }
+                }
+            }
         }
         return adjacentPositions;
     }
@@ -597,6 +667,20 @@ public class FoWHelper {
             }
         }
 
+        if (player != null && player.hasAbility("sundered")) {
+            Set<String> keepers = new HashSet<>(Set.of("epsilon"));
+            if (player.hasAbility("quantum_entanglement") || wh_recon || absol_recon) {
+                keepers.addAll(Set.of("alpha", "beta"));
+            }
+            wormholeIDs.removeIf(wh -> !keepers.contains(wh.toLowerCase()));
+        }
+
+        if (player != null
+                && player.getFaction().equals("ghost")
+                && game.getPlayerFromColorOrFaction("crimson") != null) {
+            wormholeIDs.removeIf(wh -> "epsilon".equals(wh.toLowerCase()));
+        }
+
         if ((player != null && player.hasAbility("quantum_entanglement")) || wh_recon || absol_recon) {
             if (wormholeIDs.contains(Constants.ALPHA)) {
                 wormholeIDs.add(Constants.BETA);
@@ -777,7 +861,7 @@ public class FoWHelper {
             if (p2 == player || player.getAllianceMembers().contains(p2.getFaction())) {
                 continue;
             }
-            if (playerHasShipsInSystem(p2, tile)) {
+            if (playerHasActualShipsInSystem(p2, tile)) {
                 return true;
             }
         }
@@ -792,7 +876,7 @@ public class FoWHelper {
             if (p2 == player || player.getAllianceMembers().contains(p2.getFaction())) {
                 continue;
             }
-            if (p2.hasTech("ahl") && ButtonHelperAgents.doesTileHaveAStructureInIt(p2, tile)) {
+            if (p2.hasTech("ah") && ButtonHelperAgents.doesTileHaveAStructureInIt(p2, tile)) {
                 return true;
             }
             if (p2.hasAbility("decree") && tile.isAnomaly(game)) {
@@ -905,9 +989,8 @@ public class FoWHelper {
             return;
         }
         // get players adjacent
-        List<Player> players = getAdjacentPlayers(game, position, true);
-        for (Player player_ : players) {
-            if (player_.isRealPlayer()) {
+        for (Player player_ : game.getRealPlayers()) {
+            if (FoWHelper.getTilePositionsToShow(game, player_).contains(position)) {
                 String playerMessage = player_.getRepresentation() + " - System " + tile.getRepresentationForButtons()
                         + " has been pinged:\n>>> " + message;
                 List<Button> refreshButton = viewSystemButton

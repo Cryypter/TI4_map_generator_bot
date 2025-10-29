@@ -17,7 +17,7 @@ import ti4.message.MessageHelper;
 
 class SendCommodities extends GameStateSubcommand {
 
-    public SendCommodities() {
+    SendCommodities() {
         super(Constants.SEND_COMMODITIES, "Sent Commodities to player/faction", true, true);
         addOptions(new OptionData(OptionType.INTEGER, Constants.COMMODITIES, "Commodities count").setRequired(true));
         addOptions(new OptionData(
@@ -81,8 +81,8 @@ class SendCommodities extends GameStateSubcommand {
             targetPlayer.clearDebt(player, sendCommodities);
             MessageHelper.sendMessageToEventChannel(
                     event,
-                    targetPlayer.getRepresentation() + " cleared " + sendCommodities + " debt tokens owned by "
-                            + player.getRepresentation() + ".");
+                    targetPlayer.getRepresentation() + " cleared " + sendCommodities + " debt token"
+                            + (sendCommodities == 1 ? "" : "s") + " owned by " + player.getRepresentation() + ".");
         }
 
         if (game.isFowMode()) {

@@ -13,12 +13,14 @@ public class StatisticsCommand implements ParentCommand {
                     new OptIn(),
                     new OptOut(),
                     new SurveyResults(),
+                    new CommunityStatistics(),
                     new GameStatistics(),
                     new PlayerStatistics(),
                     new AverageTurnTime(),
                     new MedianTurnTime(),
                     new CompareAFKTimes(),
                     new DiceLuck(),
+                    new MatchmakingRatingCommand(),
                     new LifetimeRecord(),
                     new FactionRecordOfTech(),
                     new FactionRecordOfSCPick(),
@@ -26,7 +28,8 @@ public class StatisticsCommand implements ParentCommand {
                     new StellarConverterStatistics(),
                     new ListTitlesGiven(),
                     new ExportToCSV(),
-                    new FactionGames())
+                    new FactionGames(),
+                    new PoliticsPosition())
             .collect(Collectors.toMap(Subcommand::getName, subcommand -> subcommand));
 
     @Override

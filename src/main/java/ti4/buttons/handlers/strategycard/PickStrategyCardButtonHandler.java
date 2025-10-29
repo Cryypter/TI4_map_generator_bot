@@ -5,9 +5,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import lombok.experimental.UtilityClass;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.emoji.Emoji;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import ti4.buttons.Buttons;
 import ti4.helpers.ActionCardHelper;
 import ti4.helpers.ButtonHelper;
@@ -90,7 +90,8 @@ public class PickStrategyCardButtonHandler {
                                 + " preset for _Public Disgrace_ was removed due to you picking " + scpick
                                 + " yourself.");
                 game.setStoredValue("Public Disgrace", "");
-            } else if (pdOnly.isEmpty() || pdOnly.contains(player.getFaction())) {
+            } else if (pdOnly.isEmpty()
+                    || (pdOnly.equalsIgnoreCase(player.getFaction()) || pdOnly.equalsIgnoreCase(player.getColor()))) {
                 for (Player p2 : game.getRealPlayers()) {
                     if (p2 == player) continue;
                     if (pdValue.contains(p2.getFaction()) && p2.getActionCards().containsKey("disgrace")) {
@@ -251,6 +252,9 @@ public class PickStrategyCardButtonHandler {
         Integer tgCount = strategyCardToTradeGoodCount.get(scPicked);
         if (tgCount != null && tgCount != 0) {
             int tg = player.getTg();
+            if (player.hasTech("tf-futurepath")) {
+                tgCount *= 3;
+            }
             tg += tgCount;
             MessageHelper.sendMessageToChannel(
                     player.getCorrectChannel(),

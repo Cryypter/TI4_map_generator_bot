@@ -2,8 +2,8 @@ package ti4.buttons.handlers.relics;
 
 import java.util.List;
 import lombok.experimental.UtilityClass;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import ti4.helpers.ActionCardHelper;
 import ti4.helpers.ButtonHelper;
 import ti4.helpers.ButtonHelperAbilities;
@@ -45,7 +45,7 @@ class RelicButtonHandler {
         }
         player.addExhaustedRelic(relic);
         MessageHelper.sendMessageToChannel(
-                event.getChannel(),
+                player.getCorrectChannel(),
                 player.getFactionEmoji() + " exhausted "
                         + Mapper.getRelic(relic).getName());
         ButtonHelper.deleteTheOneButton(event);
@@ -114,6 +114,10 @@ class RelicButtonHandler {
                 + ("neuraloop".equals(relic) ? "itself" : Mapper.getRelic(relic).getName())
                 + ", to replace the recently revealed objective with a random " + type + ".";
         MessageHelper.sendMessageToChannel(player.getCorrectChannel(), msg);
+        if (game.isFowMode()) {
+            MessageHelper.sendMessageToChannel(
+                    game.getMainGameChannel(), game.getPing() + " Revealed objective `" + poID + "` was replaced.");
+        }
         if ("stage1".equalsIgnoreCase(type)) {
             RevealPublicObjectiveService.revealS1(game, event, true);
         } else if ("stage2".equalsIgnoreCase(type)) {
@@ -150,7 +154,6 @@ class RelicButtonHandler {
         String relicId = "eye_of_vogul";
         player.removeRelic(relicId);
         player.removeExhaustedRelic(relicId);
-        String relicName = Mapper.getRelic(relicId).getName();
         MessageHelper.sendMessageToChannel(
                 event.getMessageChannel(), player.getRepresentationNoPing() + " has purged the _Eye of Vogul_.");
         ButtonHelper.deleteTheOneButton(event);

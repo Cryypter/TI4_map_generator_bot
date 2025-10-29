@@ -5,9 +5,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import lombok.experimental.UtilityClass;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import org.apache.commons.lang3.StringUtils;
 import ti4.buttons.Buttons;
 import ti4.buttons.handlers.agenda.resolver.AbolishmentAgendaResolver;
@@ -66,8 +66,10 @@ import ti4.map.Game;
 import ti4.map.Player;
 import ti4.message.MessageHelper;
 import ti4.model.AgendaModel;
+import ti4.service.fow.RiftSetModeService;
 import ti4.service.info.SecretObjectiveInfoService;
 import ti4.service.leader.CommanderUnlockCheckService;
+import ti4.service.turn.StartTurnService;
 
 @UtilityClass
 class AgendaResolveButtonHandler {
@@ -143,6 +145,7 @@ class AgendaResolveButtonHandler {
         if (handler != null) {
             handler.handle(game, event, aID, winner);
         }
+        RiftSetModeService.resolveRiftSetCrucible(agID, game.getPlayerFromColorOrFaction(winner), game);
 
         // Post-resolution
         if (game.getCurrentAgendaInfo().contains("Secret")) {
@@ -153,8 +156,8 @@ class AgendaResolveButtonHandler {
         }
         List<Player> riders = AgendaHelper.getWinningRiders(winner, game, event);
         List<Player> voters = AgendaHelper.getWinningVoters(winner, game);
-        notifyIndoctrinationTeam(game, voters, event);
-        checkFlorzenUnlock(game, voters, riders);
+        notifyIndoctrinationTeam(game, voters);
+        checkFlorzenUnlock(voters, riders);
         processRiders(game, riders);
         String resMes = buildResolutionMessage(game, winner);
         int aCount = computeNextAgendaCount(game);
@@ -278,7 +281,7 @@ class AgendaResolveButtonHandler {
         SecretObjectiveInfoService.sendSecretObjectiveInfo(game, playerWithSO, event);
     }
 
-    private static void notifyIndoctrinationTeam(Game game, List<Player> voters, ButtonInteractionEvent event) {
+    private static void notifyIndoctrinationTeam(Game game, List<Player> voters) {
         for (Player voter : voters) {
             if (voter.hasTech("dskyrog")) {
                 MessageHelper.sendMessageToChannel(
@@ -292,7 +295,7 @@ class AgendaResolveButtonHandler {
         }
     }
 
-    private static void checkFlorzenUnlock(Game game, List<Player> voters, List<Player> riders) {
+    private static void checkFlorzenUnlock(List<Player> voters, List<Player> riders) {
         List<Player> everyone = new ArrayList<>(voters);
         everyone.addAll(riders);
         for (Player player : everyone) {
@@ -377,6 +380,7 @@ class AgendaResolveButtonHandler {
     private static List<Button> buildNextButtons(Game game, int aCount) {
         List<Button> buttons = new ArrayList<>();
         buttons.add(Buttons.blue("flip_agenda", "Flip Agenda #" + aCount));
+        RiftSetModeService.includeCrucibleAgendaButton(buttons, game);
 
         if (!game.isOmegaPhaseMode()) {
             buttons.add(Buttons.green(
@@ -441,6 +445,18 @@ class AgendaResolveButtonHandler {
     private static void sendNextStepUi(
             Game game, ButtonInteractionEvent event, String resMes, String voteMessage, List<Button> buttons) {
         MessageHelper.sendMessageToChannel(event.getChannel(), resMes);
+        Player executiveOrderPlayer = game.getPlayerFromColorOrFaction(game.getStoredValue("executiveOrder"));
+        if (executiveOrderPlayer != null) {
+            voteMessage = executiveOrderPlayer.getRepresentation()
+                    + " use the buttons to proceed after fully resolving the agenda:";
+            buttons = StartTurnService.getStartOfTurnButtons(executiveOrderPlayer, game, true, event);
+            game.removeStoredValue("executiveOrder");
+            game.updateActivePlayer(executiveOrderPlayer);
+            Player oldSpeaker = game.getPlayer(game.getStoredValue("oldSpeakerExecutiveOrder"));
+            game.setSpeaker(oldSpeaker);
+            game.setPhaseOfGame("action");
+            MessageHelper.sendMessageToChannelWithButtons(event.getChannel(), voteMessage, buttons);
+        }
         if (!"action".equalsIgnoreCase(game.getPhaseOfGame())) {
             MessageHelper.sendMessageToChannelWithButtons(event.getChannel(), voteMessage, buttons);
         }

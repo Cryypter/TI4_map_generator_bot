@@ -3,8 +3,8 @@ package ti4.buttons.handlers.objective;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import ti4.buttons.Buttons;
 import ti4.helpers.ButtonHelper;
 import ti4.listeners.annotations.ButtonHandler;
@@ -37,7 +37,7 @@ class SecretObjectiveButtonHandler {
             int soIndex = Integer.parseInt(soID);
 
             String msg = player.getRepresentation() + " discarded a secret objective";
-            if (game.getRound() == 1 && !game.isFowMode()) {
+            if (game.getRound() == 1 && !game.isFowMode() && player.getSo() > 0) {
                 int amountLeftToDiscard = -1;
                 for (Player p2 : game.getRealPlayers()) {
                     if (p2.getSo() > 1) {

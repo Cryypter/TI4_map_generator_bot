@@ -15,8 +15,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import lombok.experimental.UtilityClass;
 import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.StorageClass;
 import ti4.map.Game;
 import ti4.map.Player;
 import ti4.map.persistence.GameManager;
@@ -24,10 +26,13 @@ import ti4.map.persistence.ManagedGame;
 import ti4.message.logging.BotLogger;
 import ti4.message.logging.LogOrigin;
 import ti4.settings.GlobalSettings;
+import ti4.spring.context.SpringContext;
+import ti4.spring.websocket.WebSocketNotifier;
 import ti4.website.model.WebCardPool;
 import ti4.website.model.WebLaw;
 import ti4.website.model.WebObjectives;
 import ti4.website.model.WebPlayerArea;
+import ti4.website.model.WebScoreBreakdown;
 import ti4.website.model.WebStatTilePositions;
 import ti4.website.model.WebStrategyCard;
 import ti4.website.model.WebTilePositions;
@@ -35,6 +40,7 @@ import ti4.website.model.WebTileUnitData;
 import ti4.website.model.WebsiteOverlay;
 import ti4.website.model.stats.GameStatsDashboardPayload;
 
+@UtilityClass
 public class AsyncTi4WebsiteHelper {
 
     private static final int STAT_BATCH_SIZE = 200;
@@ -81,19 +87,13 @@ public class AsyncTi4WebsiteHelper {
     }
 
     public static void putPlayerData(String gameId, Game game) {
-        if (!uploadsEnabled()) return;
         String bucket = EgressClientManager.getWebProperties().getProperty("website.bucket");
-        if (bucket == null || bucket.isEmpty()) {
-            BotLogger.error("S3 bucket not configured.");
-            return;
-        }
+        boolean isDevMode = !uploadsEnabled() || bucket == null || bucket.isEmpty();
 
         try {
             List<WebPlayerArea> playerDataList = new ArrayList<>();
-            for (Player player : game.getPlayers().values()) {
-                if (!player.isDummy()) {
-                    playerDataList.add(WebPlayerArea.fromPlayer(player, game));
-                }
+            for (Player player : game.getRealPlayersNNeutral()) {
+                playerDataList.add(WebPlayerArea.fromPlayer(player, game));
             }
 
             WebTilePositions webTilePositions = WebTilePositions.fromGame(game);
@@ -101,6 +101,12 @@ public class AsyncTi4WebsiteHelper {
             WebStatTilePositions webStatTilePositions = WebStatTilePositions.fromGame(game);
             WebObjectives webObjectives = WebObjectives.fromGame(game);
             WebCardPool webCardPool = WebCardPool.fromGame(game);
+
+            // Create score breakdowns for each player
+            Map<String, WebScoreBreakdown> playerScoreBreakdowns = new HashMap<>();
+            for (Player player : game.getRealPlayersNNeutral()) {
+                playerScoreBreakdowns.put(player.getFaction(), WebScoreBreakdown.fromPlayer(player, game));
+            }
 
             // Create laws with metadata
             List<WebLaw> lawsInPlay = new ArrayList<>();
@@ -124,6 +130,7 @@ public class AsyncTi4WebsiteHelper {
             webData.put("lawsInPlay", lawsInPlay);
             webData.put("cardPool", webCardPool);
             webData.put("strategyCards", strategyCards);
+            webData.put("scoreBreakdowns", playerScoreBreakdowns);
             webData.put("tilePositions", webTilePositions.getTilePositions());
             webData.put("tileUnitData", tileUnitData);
             webData.put("statTilePositions", webStatTilePositions.getStatTilePositions());
@@ -132,17 +139,38 @@ public class AsyncTi4WebsiteHelper {
             webData.put("gameRound", game.getRound());
             webData.put("gameName", game.getName());
             webData.put("gameCustomName", game.getCustomName());
+            webData.put("tableTalkJumpLink", game.getTabletalkJumpLink());
+            webData.put("actionsJumpLink", game.getActionsJumpLink());
 
             String json = EgressClientManager.getObjectMapper().writeValueAsString(webData);
 
-            putObjectInBucket(
-                    String.format("webdata/%s/%s.json", gameId, gameId),
-                    AsyncRequestBody.fromString(json),
-                    "application/json",
-                    "no-cache, no-store, must-revalidate",
-                    bucket);
+            if (isDevMode) {
+                // Dev/local mode - print to console instead of uploading
+
+                // Uncomment if this is what you're into
+                // System.out.println("=== DEV MODE: Web Player Data for game " + gameId + " ===");
+                // System.out.println(json);
+                // System.out.println("=== END Web Player Data ===");
+            } else {
+                // Production mode - upload to S3
+                putObjectInBucket(
+                        String.format("webdata/%s/%s.json", gameId, gameId),
+                        AsyncRequestBody.fromString(json),
+                        "application/json",
+                        "no-cache, no-store, must-revalidate",
+                        null);
+
+                notifyGameRefreshWebsocket(gameId);
+            }
         } catch (Exception e) {
             BotLogger.error(new LogOrigin(game), "Could not put data to web server", e);
+        }
+    }
+
+    private static void notifyGameRefreshWebsocket(String gameId) {
+        try {
+            SpringContext.getBean(WebSocketNotifier.class).notifyGameRefresh(gameId);
+        } catch (Exception ignored) {
         }
     }
 
@@ -162,7 +190,7 @@ public class AsyncTi4WebsiteHelper {
                     AsyncRequestBody.fromString(json),
                     "application/json",
                     "no-cache, no-store, must-revalidate",
-                    bucket);
+                    null);
         } catch (Exception e) {
             BotLogger.error("Could not put overlay to web server", e);
         }
@@ -250,36 +278,42 @@ public class AsyncTi4WebsiteHelper {
                 });
     }
 
-    public static void putMap(String gameName, byte[] imageBytes, boolean frog, Player player) {
-        if (!uploadsEnabled()) return;
+    public static String putMap(String gameName, String fileFormat, byte[] imageBytes, boolean frog, Player player) {
+        if (!uploadsEnabled()) return null;
         String bucket = EgressClientManager.getWebProperties().getProperty("website.bucket");
         if (bucket == null || bucket.isEmpty()) {
             BotLogger.error("S3 bucket not configured.");
-            return;
+            return null;
         }
 
         try {
             String mapPath;
             if (frog && player != null) {
-                mapPath = "fogmap/" + player.getUserID() + "/%s/%s.jpg";
+                mapPath = "fogmap/" + player.getUserID() + "/%s/%s." + fileFormat;
             } else {
-                mapPath = "map/%s/%s.jpg";
+                mapPath = "map/%s/%s." + fileFormat;
             }
 
             LocalDateTime date = LocalDateTime.now();
             String dtstamp = date.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
 
+            String key = String.format(mapPath, gameName, dtstamp);
+            String fileName = dtstamp + "." + fileFormat;
+
             putObjectInBucket(
-                    String.format(mapPath, gameName, dtstamp),
+                    key,
                     AsyncRequestBody.fromBytes(imageBytes),
-                    "image/jpg",
+                    "image/" + fileFormat,
                     null,
-                    bucket);
+                    StorageClass.INTELLIGENT_TIERING);
+
+            return fileName;
         } catch (Exception e) {
             BotLogger.error(
                     new LogOrigin(player),
                     "Could not add image for game `" + gameName + "` to web server. Likely invalid credentials.",
                     e);
+            return null;
         }
     }
 
@@ -301,7 +335,7 @@ public class AsyncTi4WebsiteHelper {
     }
 
     private static void putObjectInBucket(
-            String key, AsyncRequestBody body, String contentType, String cacheControl, String bucket) {
+            String key, AsyncRequestBody body, String contentType, String cacheControl, StorageClass storageClass) {
         String websiteBucket = EgressClientManager.getWebProperties().getProperty("website.bucket");
 
         PutObjectRequest.Builder requestBuilder =
@@ -309,6 +343,10 @@ public class AsyncTi4WebsiteHelper {
 
         if (cacheControl != null) {
             requestBuilder.cacheControl(cacheControl);
+        }
+
+        if (storageClass != null) {
+            requestBuilder.storageClass(storageClass);
         }
 
         PutObjectRequest request = requestBuilder.build();
