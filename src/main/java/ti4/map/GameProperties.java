@@ -1,12 +1,16 @@
 package ti4.map;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
-
+import java.util.Map;
 import lombok.Getter;
 import lombok.Setter;
+import ti4.helpers.ActionCardHelper.ACStatus;
 import ti4.helpers.Constants;
 import ti4.helpers.omega_phase.PriorityTrackHelper.PriorityTrackMode;
+import ti4.map.pojo.ExportableField;
 
 @Getter
 @Setter
@@ -15,7 +19,7 @@ public class GameProperties {
     private @ExportableField String ownerID;
     private @ExportableField String ownerName = "";
     private @ExportableField String creationDate;
-    private @ExportableField String name; //pbdXXXX
+    private @ExportableField String name; // pbdXXXX
     private @ExportableField String customName = "";
     private @ExportableField String mapTemplateID;
     private @ExportableField String phaseOfGame = "";
@@ -28,6 +32,7 @@ public class GameProperties {
     private @ExportableField long lastModifiedDate;
     private @ExportableField long endedDate;
     private @ExportableField boolean hasEnded;
+    private @ExportableField boolean replacementMade;
 
     // Deck IDs
     private @ExportableField String acDeckID = "action_cards_pok";
@@ -52,6 +57,7 @@ public class GameProperties {
     private String savedMessage;
     private boolean hasHadAStatusPhase;
     private boolean naaluAgent;
+    private boolean warfareAction;
     private boolean l1Hero;
     private boolean temporaryPingDisable;
     private boolean dominusOrb;
@@ -84,7 +90,7 @@ public class GameProperties {
     private boolean showUnitTags;
     private boolean stratPings = true;
     private boolean testBetaFeaturesMode;
-    private boolean showOwnedPNsInPlayerArea = false;
+    private boolean showOwnedPNsInPlayerArea;
     private String hexBorderStyle = "off"; // values are off/dash/solid
     private String textSize = "medium";
     private String outputVerbosity = Constants.VERBOSITY_VERBOSE;
@@ -93,11 +99,30 @@ public class GameProperties {
 
     // Game modes / homebrew flags
     private @ExportableField boolean baseGameMode; // TODO: Make this obsolete
+    private @ExportableField boolean thundersEdge;
+    private @ExportableField boolean twilightsFallMode;
     private @ExportableField boolean prophecyOfKings = true;
     private @ExportableField boolean ageOfExplorationMode;
     private @ExportableField boolean facilitiesMode;
     private @ExportableField boolean minorFactionsMode;
     private @ExportableField boolean totalWarMode;
+    private @ExportableField boolean dangerousWildsMode;
+    private @ExportableField boolean civilizedSocietyMode;
+    private @ExportableField boolean ageOfFightersMode;
+    private @ExportableField boolean mercenariesForHireMode;
+    private @ExportableField boolean adventOfTheWarsunMode;
+    private @ExportableField boolean culturalExchangeProgramMode;
+    private @ExportableField boolean conventionsOfWarAbandonedMode;
+    private @ExportableField boolean rapidMobilizationMode;
+    private @ExportableField boolean weirdWormholesMode;
+    private @ExportableField boolean callOfTheVoidMode;
+    private @ExportableField boolean cosmicPhenomenaeMode;
+    private @ExportableField boolean monumentToTheAgesMode;
+    private @ExportableField boolean wildWildGalaxyMode;
+    private @ExportableField boolean zealousOrthodoxyMode;
+    private @ExportableField boolean stellarAtomicsMode;
+    private @ExportableField boolean noSwapMode;
+    private @ExportableField boolean limitedWhispersMode;
     private @ExportableField boolean ageOfCommerceMode;
     private @ExportableField boolean hiddenAgendaMode;
     private @ExportableField boolean ordinianC1Mode;
@@ -127,13 +152,13 @@ public class GameProperties {
     // Discord Snowflakes
     private @ExportableField String guildID;
     private String speakerUserID = "";
+    private String tyrantUserID = "";
     private String activePlayerID;
     private String launchPostThreadID;
     private @ExportableField String botMapUpdatesThreadID;
     private @ExportableField String tableTalkChannelID;
     private @ExportableField String mainChannelID;
     private String savedChannelID;
-    private @ExportableField List<String> fogOfWarGMIDs = new ArrayList<>(1); // Game Masters
 
     // More complex objects below
     private @ExportableField String mapString;
@@ -142,7 +167,11 @@ public class GameProperties {
     private List<String> secretObjectives;
     private List<String> actionCards;
     private List<String> agendas;
+    private List<String> mandates;
     private List<String> events; // ignis_aurora
+
+    private Map<String, Integer> discardActionCards = new LinkedHashMap<>();
+    private Map<String, ACStatus> discardACStatus = new HashMap<>();
 
     // Priority Track
     private PriorityTrackMode priorityTrackMode = PriorityTrackMode.NONE;
@@ -157,6 +186,6 @@ public class GameProperties {
 
     // Misc Helpers
     public String getID() {
-        return getName();
+        return name;
     }
 }

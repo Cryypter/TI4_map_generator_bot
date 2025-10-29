@@ -1,18 +1,18 @@
 package ti4.settings.users;
 
-import static org.apache.commons.lang3.StringUtils.isBlank;
+import static org.apache.commons.lang3.StringUtils.*;
 
+import com.fasterxml.jackson.annotation.JsonGetter;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
-
-import com.fasterxml.jackson.annotation.JsonGetter;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
+@NoArgsConstructor // needed for ObjectMapper
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class UserSettings {
 
@@ -26,7 +26,20 @@ public class UserSettings {
     private boolean pingOnNextTurn;
     private boolean showTransactables;
 
-    UserSettings() {} // needed for ObjectMapper
+    private boolean hasAnsweredSurvey;
+    private boolean prefersSarweenMsg = true;
+    private boolean prefersPillageMsg = true;
+    private boolean prefersAutoDebtClearance = true;
+    private boolean prefersPassOnWhensAfters;
+    private boolean prefersPrePassOnSC = true;
+    private int autoNoSaboInterval;
+    private String whisperPref = "No Preference";
+    private String supportPref = "No Preference";
+    private String sandbagPref = "No Preference";
+    private String winmakingPref = "No Preference";
+    private String takebackPref = "No Preference";
+    private String metaPref = "No Preference";
+    private String trackRecord = "";
 
     UserSettings(String userId) {
         this.userId = userId;
