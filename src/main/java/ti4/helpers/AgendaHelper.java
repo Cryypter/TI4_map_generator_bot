@@ -356,6 +356,8 @@ public class AgendaHelper {
         // if (ButtonHelper.isPlayerElected(player.getGame(), player, "committee")) {
         //     names.add("Committee Formation (technically resolves after all afters)");
         // }
+        names.addAll(CryypterHelper.getVotCAfterNames(player));
+
         return names;
     }
 
@@ -404,7 +406,7 @@ public class AgendaHelper {
         // if (ButtonHelper.isPlayerElected(player.getGame(), player, "committee")) {
         //     buttons.add(Buttons.red("queueAfter_agenda_committee", "Committee Formation"));
         // }
-        CryypterHelper.addVotCRiderQueueButtons(player, buttons);
+        buttons.addAll(CryypterHelper.addVotCRiderQueueButtons(player));
 
         return buttons;
     }
@@ -577,7 +579,6 @@ public class AgendaHelper {
                             case "leader" -> {
                                 if (after.toLowerCase().contains("keleres")) {
                                     Leader playerLeader = player.getLeader("keleresheroodlynn").orElse(null);
-                                    playerLeader = CryypterHelper.keleresHeroCheck(player, playerLeader);
                                     if (playerLeader != null) {
                                         String message = player.getRepresentation() + " played " +
                                             Helper.getLeaderFullRepresentation(playerLeader);
@@ -1671,7 +1672,7 @@ public class AgendaHelper {
                 afterButtons.add(Buttons.gray(finChecker + "autoresolve_manualcommittee", "Use Committee Formation", CardEmojis.Agenda));
             }
         }
-        CryypterHelper.addVotCAfterButtons(game, afterButtons);
+        afterButtons.addAll(CryypterHelper.addVotCAfterButtons(game));
         afterButtons.add(Buttons.blue("no_after", "No \"After\"s (for now)", MiscEmojis.NoAfters));
         afterButtons.add(Buttons.blue("no_after_persistent", "No \"After\"s (for this agenda)", MiscEmojis.NoAfters));
         return afterButtons;
@@ -2133,7 +2134,7 @@ public class AgendaHelper {
 
                     }
                 }
-                CryypterHelper.handleWinningRiders(game, winner);
+                CryypterHelper.handleWinningRiders(game, winner, event);
             }
         }
         return winningRs;
@@ -2439,7 +2440,7 @@ public class AgendaHelper {
                     + " Any \"when\"s or \"after\"s that you queue will be automatically cancelled if it is played by another player.");
             }
             if (game.getCurrentAgendaInfo().contains("Player") && ButtonHelper.isPlayerElected(game, player, "committee")) {
-                List<Button> buttons = new ArrayList();
+                List<Button> buttons = new ArrayList<Button>();
                 buttons.add(Buttons.green("presetCommitteeFormation", "Preset Committee Formation"));
                 buttons.add(Buttons.red("deleteButtons", "Decline"));
                 MessageHelper.sendMessageToChannelWithButtons(player.getCardsInfoThread(),

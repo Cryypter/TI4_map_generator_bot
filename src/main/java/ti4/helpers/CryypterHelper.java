@@ -15,6 +15,7 @@ import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import ti4.buttons.Buttons;
+import ti4.commands.tokens.AddTokenCommand;
 import ti4.helpers.Units.UnitType;
 import ti4.image.Mapper;
 import ti4.listeners.annotations.ButtonHandler;
@@ -24,10 +25,12 @@ import ti4.map.Planet;
 import ti4.map.Player;
 import ti4.map.Space;
 import ti4.map.Tile;
+import ti4.map.UnitHolder;
 import ti4.message.MessageHelper;
 import ti4.model.FactionModel;
 import ti4.model.LeaderModel;
 import ti4.model.PlanetModel;
+import ti4.service.PlanetService;
 import ti4.service.emoji.CardEmojis;
 import ti4.service.emoji.ExploreEmojis;
 import ti4.service.emoji.FactionEmojis;
@@ -89,7 +92,7 @@ public class CryypterHelper {
         game.setStrategyCardSet("votc");
         //TODO: Implement swap function to only replace specific ACs?
         game.validateAndSetActionCardDeck(event, Mapper.getDeck("action_cards_cryypter"));
-        //TODO: swap Xxcha and Keleres!Xxcha heroes
+        //TODO: swap Xxcha hero?
         MessageHelper.sendMessageToChannel(event.getMessageChannel(), "Set game to Voices of the Council mode.");
     }
 
@@ -294,31 +297,45 @@ public class CryypterHelper {
         }
     }
 
-    public static void addVotCAfterButtons(Game game, List<Button> afterButtons) {
-        if (!game.isVotcMode())
+    public static List<String> getVotCAfterNames(Player player) {
+        List<String> names = new ArrayList<>();
+        for (Leader leader : player.getLeaders()) {
+            LeaderModel leaderModel = leader.getLeaderModel().orElse(null);
+            if (!leader.isLocked() && leaderModel.getAbilityWindow() == "After an agenda is revealed:") {
+                names.add(leaderModel.getNameRepresentation());
+            }
+        }
+        return names;
+    }
+
+    public static List<Button> addVotCAfterButtons(Game game) {
+        List<Button> afterButtons = new ArrayList<>(); 
+        if (game.isVotcMode())
         {
-           return;
+            for (Player player : game.getPlayers().values()) {
+                afterButtons.addAll(votcRiderButtons(player, true));
+            }
         }
-        for (Player player : game.getPlayers().values()) {
-            votcRiderButtons(player, afterButtons, true);
-        }
+        return afterButtons;
     }
 
-    public static void addVotCRiderQueueButtons(Player player, List<Button> buttons) {
-        votcRiderButtons(player, buttons, false);
+    public static List<Button> addVotCRiderQueueButtons(Player player) {
+        List<Button> afterButtons = new ArrayList<>(); 
+        if (player.getGame().isVotcMode())
+        {
+            afterButtons.addAll(votcRiderButtons(player, false));
+        }
+        return afterButtons;
     }
 
-    private static void votcRiderButtons(Player player, List<Button> buttons, boolean play) {
+    private static List<Button> votcRiderButtons(Player player, boolean play) {
+        List<Button> buttons = new ArrayList<>(); 
         for (Leader leader : player.getLeaders()) {
             LeaderModel leaderModel = leader.getLeaderModel().orElse(null);
             if (!leader.isLocked() && leaderModel.getAbilityWindow() == "After an agenda is revealed:") {
                 FactionModel factionModel = Mapper.getFaction(leaderModel.getFaction());
                 String buttonID = "";
-                if (leaderModel.getType() == "hero") {
-                    buttonID = "Keleres Xxcha Hero";
-                } else {
-                    buttonID = factionModel.getShortName() + " Envoy";
-                }
+                buttonID = factionModel.getShortName() + " Envoy";
                 String buttonLabel = leaderModel.getName() + " (" + factionModel.getShortName() + " " + leaderModel.getType() + ")";
                 if (play) {
                     buttons.add(Buttons.gray(player.getFinsFactionCheckerPrefix() + "play_after_" + buttonID, "Play " + buttonLabel, factionModel.getFactionEmoji()));
@@ -327,16 +344,10 @@ public class CryypterHelper {
                 }
             }
         }
+        return buttons;
     }
 
-    public static Leader keleresHeroCheck(Player player, Leader playerLeader) {
-        if (playerLeader == null) {
-            playerLeader = player.getLeader("votc_keleresheroxxcha").orElse(null);
-        }
-        return playerLeader;
-    }
-
-    public static void handleWinningRiders(Game game, String winningOutcome) {
+    public static void handleWinningRiders(Game game, String winningOutcome, GenericInteractionCreateEvent event) {
         //AgendaHelper.placeRider()
         //format of stored votes and outcomes (identifier can be either color or name): [faction identifier]_[number];[faction identifier]_[rider name]
         if (game.isVotcMode()) {
@@ -434,8 +445,26 @@ public class CryypterHelper {
                 }
                 if (key.contains("empyreanenvoy") && empy) {
                     String message = envoyPlayer.getRepresentationUnfogged()
-                        + ", you have the Empyrean Envoy to resolve. This is not yet implemented in the bot, so you will need to resolve the effect manually.";
-                    MessageHelper.sendMessageToChannel(channel, message);
+                        + ", you have the Empyrean Envoy to resolve. Choose which system you would like to place a frontier token in.";
+                    
+                    List<Button> buttons = new ArrayList<>();
+                    /* for (Tile tile : game.getTileMap().values()) {
+                        if ((tile.getPlanetUnitHolders().isEmpty() 
+                            && tile.getUnitHolders().size() == 2) 
+                            || Mapper.getFrontierTileIds().contains(tile.getTileID())) {
+                            boolean hasMirage = false;
+                            for (UnitHolder unitholder : tile.getUnitHolders().values()) {
+                                if (unitholder.getName().equals(Constants.MIRAGE)) {
+                                    hasMirage = true;
+                                    break;
+                                }
+                            }
+                            if (!hasMirage) buttons.add(Buttons.gray("empyreanEnvoyPlace_" + tilePos, Helper.getPlanetRepresentation(p.getName(), game)));
+                            AddTokenCommand.addToken(event, tile, Constants.FRONTIER, game);
+                        }
+                    } */
+                    buttons.addAll(ButtonHelper.getEchoAvailableSystems(game, envoyPlayer));
+                    MessageHelper.sendMessageToChannelWithButtons(channel, message, buttons);
                 }
                 if (key.contains("hacanenvoy") && committedWinner.contains(envoyPlayer)) {
                     String message = envoyPlayer.getRepresentationUnfogged()
@@ -459,7 +488,14 @@ public class CryypterHelper {
                 }
                 if (key.contains("mahactenvoy") && committedWinner.contains(envoyPlayer)) {
                     String message = envoyPlayer.getRepresentationUnfogged()
-                        + ", you have the Mahact Envoy to resolve. This is not yet implemented in the bot, so you will need to resolve the effect manually.";
+                        + ", you have the Mahact Envoy to resolve. Choose a player to add their command token to your fleet pool.";
+                    
+                    List<Button> buttons = new ArrayList<>();
+                    for (Player counterPlayer : counterLosers) {
+                        if(!envoyPlayer.getMahactCC().contains(counterPlayer.getColor())){
+                            buttons.add(Buttons.blue("mahactEnvoy_" + counterPlayer.getColor(), counterPlayer.getRepresentation()));
+                        }
+                    }
                     MessageHelper.sendMessageToChannel(channel, message);
                 }
                 if (key.contains("muaatenvoy") && committedLoser.contains(envoyPlayer) && Helper.getCCCount(game, envoyPlayer.getColor()) < 16) {
@@ -499,17 +535,48 @@ public class CryypterHelper {
                 if (key.contains("saarenvoy") && committedWinner.contains(envoyPlayer)) {
                     String message = envoyPlayer.getRepresentationUnfogged()
                         + ", you have the Saar Envoy to resolve. This is not yet implemented in the bot, so you will need to resolve the effect manually.";
+                    
+                    Helper.getTileWithShipsPlaceUnitButtons(player, game, "cruiser", "placeOneNDone_skipbuild")
+                    FoWHelper.getAdjacentTiles(game, pos1, player, false);
+
+
+                    
                     MessageHelper.sendMessageToChannel(channel, message);
                 }
                 if (key.contains("solenvoy") && committedWinner.contains(envoyPlayer)) {
                     String message = envoyPlayer.getRepresentationUnfogged()
-                        + ", you have the Sol Envoy to resolve. This is not yet implemented in the bot, so you will need to resolve the effect manually.";
-                    MessageHelper.sendMessageToChannel(channel, message);
+                        + ", you have the Sol Envoy to resolve. Choose which system to ready your planets in.";
+                    
+                    List<Button> buttons = new ArrayList<>();
+                    List<Tile> eligibleTiles = new ArrayList<>();
+                    List<String> planets = envoyPlayer.getExhaustedPlanets();
+                    for (String planetID : planets) {
+                        Tile tile = game.getTileFromPlanet(planetID);
+
+                        if (!eligibleTiles.contains(tile)) {
+                            eligibleTiles.add(tile);
+                            buttons.add(Buttons.green("solEnvoy_" + tile.getTileID(), tile.getRepresentationForButtons()));
+                        }
+                    }
+                    
+                    MessageHelper.sendMessageToChannelWithButtons(channel, message, buttons);
                 }
                 if (key.contains("titansenvoy") && committedLoser.contains(envoyPlayer)) {
                     String message = envoyPlayer.getRepresentationUnfogged()
-                        + ", you have the Titans Envoy to resolve. This is not yet implemented in the bot, so you will need to resolve the effect manually.";
-                    MessageHelper.sendMessageToChannel(channel, message);
+                        + ", you have the Titans Envoy to resolve. Choose the planet you wish to place a sleeper token on.";
+                    
+                    List<Button> buttons = new ArrayList<>();
+
+                    for (Player counterPlayer : counterWinners) {
+                        List<String> planets = counterPlayer.getPlanets();
+                        for (String planetID : planets) {
+                            Planet p = game.getUnitHolderFromPlanet(planetID);
+                            if (!p.isHomePlanet() && !game.getAllPlanetsWithSleeperTokens().contains(planetID)) {
+                                buttons.add(Buttons.green("putSleeperOnPlanet_" + planetID, planetID, MiscEmojis.Sleeper));
+                            }
+                        }
+                    }
+                    MessageHelper.sendMessageToChannelWithButtons(channel, message, buttons);
                 }
             }
         }
@@ -536,6 +603,25 @@ public class CryypterHelper {
                 }
             }
         }
+    }
+
+    @ButtonHandler("solEnvoy_")
+    public static void solEnvoy(String buttonID, ButtonInteractionEvent event, Game game, Player player) {
+        String[] fields = buttonID.split("_");
+        List<Planet> planets = game.getTile(fields[1]).getPlanetUnitHolders();
+        for(Planet planet : planets)
+        {
+            if(player.hasPlanet(planet.getName()))
+            {
+                PlanetService.refreshPlanet(player, planet.getName());
+            }
+        }
+    }
+    
+    @ButtonHandler("mahactEnvoy_")
+    public static void mahactEnvoy(String buttonID, ButtonInteractionEvent event, Game game, Player player) {
+        String[] fields = buttonID.split("_");
+        player.addMahactCC(fields[1]);
     }
 
     @ButtonHandler("handleNaazEnvoy_")
