@@ -324,7 +324,7 @@ public class CryypterHelper {
     }
 
     public static List<Button> addVotCRiderQueueButtons(Player player) {
-        List<Button> afterButtons = new ArrayList<>(); 
+        List<Button> afterButtons = new ArrayList<>();
         if (player.getGame().isVotcMode()) {
             afterButtons.addAll(votcRiderButtons(player, false));
         }
@@ -359,8 +359,9 @@ public class CryypterHelper {
     }
 
     public static void handleWinningRiders(Game game, String winningOutcome) {
-        //AgendaHelper.placeRider()
-        //format of stored votes and outcomes (identifier can be either color or name): [faction identifier]_[number];[faction identifier]_[rider name]
+        // AgendaHelper.placeRider()
+        // format of stored votes and outcomes (identifier can be either color or name): [faction
+        // identifier]_[number];[faction identifier]_[rider name]
         if (game.isVotcMode()) {
             Map<String, Player> usedEnvoy = new HashMap<>();
             List<Player> committedWinner = new ArrayList<>();
@@ -465,12 +466,12 @@ public class CryypterHelper {
                 }
                 if (key.contains("empyreanenvoy") && empy) {
                     String message = envoyPlayer.getRepresentationUnfogged()
-                        + ", you have the Empyrean Envoy to resolve. Choose which system you would like to place a frontier token in.";
-                    
+                            + ", you have the Empyrean Envoy to resolve. Choose which system you would like to place a frontier token in.";
+
                     List<Button> buttons = new ArrayList<>();
                     /* for (Tile tile : game.getTileMap().values()) {
-                        if ((tile.getPlanetUnitHolders().isEmpty() 
-                            && tile.getUnitHolders().size() == 2) 
+                        if ((tile.getPlanetUnitHolders().isEmpty()
+                            && tile.getUnitHolders().size() == 2)
                             || Mapper.getFrontierTileIds().contains(tile.getTileID())) {
                             boolean hasMirage = false;
                             for (UnitHolder unitholder : tile.getUnitHolders().values()) {
@@ -508,8 +509,8 @@ public class CryypterHelper {
                 }
                 if (key.contains("mahactenvoy") && committedWinner.contains(envoyPlayer)) {
                     String message = envoyPlayer.getRepresentationUnfogged()
-                        + ", you have the Mahact Envoy to resolve. Choose a player to add their command token to your fleet pool.";
-                    
+                            + ", you have the Mahact Envoy to resolve. Choose a player to add their command token to your fleet pool.";
+
                     List<Button> buttons = new ArrayList<>();
                     for (Player counterPlayer : counterLosers) {
                         if(!envoyPlayer.getMahactCC().contains(counterPlayer.getColor())){
