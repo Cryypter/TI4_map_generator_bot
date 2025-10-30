@@ -654,7 +654,8 @@ public class AgendaHelper {
                             }
                             case "leader" -> {
                                 if (after.toLowerCase().contains("keleres")) {
-                                    Leader playerLeader = player.getLeader("keleresheroodlynn").orElse(null);
+                                    Leader playerLeader = player.getLeader("keleresheroodlynn")
+                                            .orElse(null);
                                     if (playerLeader != null) {
                                         String message = player.getRepresentation() + " played "
                                                 + Helper.getLeaderFullRepresentation(playerLeader);
