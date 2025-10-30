@@ -642,13 +642,13 @@ public class CryypterHelper {
     public static void solEnvoy(String buttonID, ButtonInteractionEvent event, Game game, Player player) {
         String[] fields = buttonID.split("_");
         List<Planet> planets = game.getTile(fields[1]).getPlanetUnitHolders();
-        for(Planet planet : planets) {
-            if(player.hasPlanet(planet.getName())) {
+        for (Planet planet : planets) {
+            if (player.hasPlanet(planet.getName())) {
                 PlanetService.refreshPlanet(player, planet.getName());
             }
         }
     }
-    
+
     @ButtonHandler("mahactEnvoy_")
     public static void mahactEnvoy(String buttonID, ButtonInteractionEvent event, Game game, Player player) {
         String[] fields = buttonID.split("_");
@@ -774,17 +774,16 @@ public class CryypterHelper {
         Tile destTile = game.getTile(fields[1]);
         String message = " choose which adjacent system to move a ship from.";
         Set<String> adjTilePoss = FoWHelper.getAdjacentTiles(game, destTile.getPosition(), player, false);
-        for(String tilePos : adjTilePoss)
-        {
+        for (String tilePos : adjTilePoss) {
             Tile tile = game.getTileMap().get(tilePos);
-            if(FoWHelper.playerHasShipsInSystem(player, tile))
-            {
-                buttons.add(Buttons.green("saarEnvoySource_" + destTile.getTileID() + "_" + tile.getTileID(), tile.getRepresentationForButtons()));
+            if (FoWHelper.playerHasShipsInSystem(player, tile)) {
+                buttons.add(Buttons.green(
+                        "saarEnvoySource_" + destTile.getTileID() + "_" + tile.getTileID(),
+                        tile.getRepresentationForButtons()));
             }
         }
-        MessageHelper.sendMessageToChannelWithButtons(player.getCorrectChannel(),
-            player.getRepresentationUnfogged() + message,
-            buttons);
+        MessageHelper.sendMessageToChannelWithButtons(
+                player.getCorrectChannel(), player.getRepresentationUnfogged() + message, buttons);
         event.getMessage().delete().queue();
     }
 
