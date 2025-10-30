@@ -797,14 +797,15 @@ public class CryypterHelper {
         UnitHolder unitHolder = sourceTile.getSpaceUnitHolder();
         for (UnitKey unitKey : unitHolder.getUnitKeys()) {
             if (player.unitBelongsToPlayer(unitKey)) {
-                buttons.add(Buttons.green("handleSaarEnvoy_" + destTile.getTileID() + "_" + sourceTile.getTileID() + "_" + unitKey.unitName(), 
-                unitKey.unitName(), 
-                unitKey.unitEmoji()));
+                buttons.add(Buttons.green(
+                        "handleSaarEnvoy_" + destTile.getTileID() + "_" + sourceTile.getTileID() + "_" +
+                                unitKey.unitName(), 
+                        unitKey.unitName(), 
+                        unitKey.unitEmoji()));
             }
         }
-        MessageHelper.sendMessageToChannelWithButtons(player.getCorrectChannel(),
-            player.getRepresentationUnfogged() + message,
-            buttons);
+        MessageHelper.sendMessageToChannelWithButtons(
+                player.getCorrectChannel(), player.getRepresentationUnfogged() + message, buttons);
         event.getMessage().delete().queue();
     }
 
@@ -814,10 +815,10 @@ public class CryypterHelper {
         Tile destTile = game.getTile(fields[1]);
         Tile sourceTile = game.getTile(fields[2]);
         String unitKey = fields[3];
-        
+
         String msg = player.getRepresentation() + " moved " + unitKey
-            + " from " + sourceTile.getRepresentationForButtons(game, player)
-            + " to " + destTile.getRepresentationForButtons(game, player);
+                + " from " + sourceTile.getRepresentationForButtons(game, player)
+                + " to " + destTile.getRepresentationForButtons(game, player);
 
         MoveUnitService.moveUnits(event, sourceTile, game, player.getColor(), unitKey, destTile, "space");
 
