@@ -97,7 +97,7 @@ public class CryypterHelper {
         game.setStrategyCardSet("votc");
         // TODO: Implement swap function to only replace specific ACs?
         game.validateAndSetActionCardDeck(event, Mapper.getDeck("action_cards_cryypter"));
-        //TODO: swap Xxcha hero?
+        // TODO: swap Xxcha hero?
         MessageHelper.sendMessageToChannel(event.getMessageChannel(), "Set game to Voices of the Council mode.");
     }
 
@@ -315,8 +315,7 @@ public class CryypterHelper {
     }
 
     public static List<Button> addVotCAfterButtons(Game game, List<Button> afterButtons) {
-        if (game.isVotcMode())
-        {
+        if (game.isVotcMode()) {
             for (Player player : game.getPlayers().values()) {
                 afterButtons.addAll(votcRiderButtons(player, true));
             }
@@ -326,15 +325,14 @@ public class CryypterHelper {
 
     public static List<Button> addVotCRiderQueueButtons(Player player) {
         List<Button> afterButtons = new ArrayList<>(); 
-        if (player.getGame().isVotcMode())
-        {
+        if (player.getGame().isVotcMode()) {
             afterButtons.addAll(votcRiderButtons(player, false));
         }
         return afterButtons;
     }
 
     private static List<Button> votcRiderButtons(Player player, boolean play) {
-        List<Button> buttons = new ArrayList<>(); 
+        List<Button> buttons = new ArrayList<>();
         for (Leader leader : player.getLeaders()) {
             LeaderModel leaderModel = leader.getLeaderModel().orElse(null);
             if (leaderModel != null
@@ -345,7 +343,8 @@ public class CryypterHelper {
                     continue;
                 }
                 String buttonID = factionModel.getShortName() + " Envoy";
-                String buttonLabel = leaderModel.getName() + " (" + factionModel.getShortName() + " " + leaderModel.getType() + ")";
+                String buttonLabel =
+                        leaderModel.getName() + " (" + factionModel.getShortName() + " " + leaderModel.getType() + ")";
                 if (play) {
                     buttons.add(Buttons.gray(
                             player.getFinsFactionCheckerPrefix() + "play_after_" + buttonID,
