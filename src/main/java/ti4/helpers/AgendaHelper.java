@@ -408,6 +408,8 @@ public class AgendaHelper {
         // if (IsPlayerElectedService.isPlayerElected(player.getGame(), player, "committee")) {
         //     names.add("Committee Formation (technically resolves after all afters)");
         // }
+        names.addAll(CryypterHelper.getVotCAfterNames(player));
+
         return names;
     }
 
@@ -464,7 +466,7 @@ public class AgendaHelper {
         // if (IsPlayerElectedService.isPlayerElected(player.getGame(), player, "committee")) {
         //     buttons.add(Buttons.red("queueAfter_agenda_committee", "Committee Formation"));
         // }
-        CryypterHelper.addVotCRiderQueueButtons(player, buttons);
+        buttons.addAll(CryypterHelper.addVotCRiderQueueButtons(player));
 
         return buttons;
     }
@@ -654,7 +656,6 @@ public class AgendaHelper {
                                 if (after.toLowerCase().contains("keleres")) {
                                     Leader playerLeader = player.getLeader("keleresheroodlynn")
                                             .orElse(null);
-                                    playerLeader = CryypterHelper.keleresHeroCheck(player, playerLeader);
                                     if (playerLeader != null) {
                                         String message = player.getRepresentation() + " played "
                                                 + Helper.getLeaderFullRepresentation(playerLeader);
@@ -3827,7 +3828,6 @@ public class AgendaHelper {
                         mainGameChannel, "Please choose your rider target.", game, player, riderButtons);
                 if ("Keleres Xxcha Hero".equalsIgnoreCase(riderName)) {
                     Leader playerLeader = player.getLeader("keleresheroodlynn").orElse(null);
-                    playerLeader = CryypterHelper.keleresHeroCheck(player, playerLeader);
                     if (playerLeader != null) {
                         String message = player.getRepresentation() + " played "
                                 + Helper.getLeaderFullRepresentation(playerLeader);
