@@ -513,7 +513,7 @@ public class CryypterHelper {
 
                     List<Button> buttons = new ArrayList<>();
                     for (Player counterPlayer : counterLosers) {
-                        if(!envoyPlayer.getMahactCC().contains(counterPlayer.getColor())) {
+                        if (!envoyPlayer.getMahactCC().contains(counterPlayer.getColor())) {
                             buttons.add(Buttons.blue(
                                     "mahactEnvoy_" + counterPlayer.getColor(), counterPlayer.getRepresentation()));
                         }
@@ -565,8 +565,9 @@ public class CryypterHelper {
 
                     List<Button> buttons = new ArrayList<>();
                     List<Tile> tiles = ButtonHelper.getTilesWithShipsInTheSystem(envoyPlayer, game);
-                    for(Tile tile : tiles) {
-                        buttons.add(Buttons.green("saarEnvoyDestination_" + tile.getTileID(), tile.getRepresentationForButtons()));
+                    for (Tile tile : tiles) {
+                        buttons.add(Buttons.green(
+                                "saarEnvoyDestination_" + tile.getTileID(), tile.getRepresentationForButtons()));
                     }
 
                     MessageHelper.sendMessageToChannelWithButtons(channel, message, buttons);
@@ -600,8 +601,10 @@ public class CryypterHelper {
                         List<String> planets = counterPlayer.getPlanets();
                         for (String planetID : planets) {
                             Planet p = game.getUnitHolderFromPlanet(planetID);
-                            if (!p.isHomePlanet() && !game.getAllPlanetsWithSleeperTokens().contains(planetID)) {
-                                buttons.add(Buttons.green("putSleeperOnPlanet_" + planetID, planetID, MiscEmojis.Sleeper));
+                            if (!p.isHomePlanet()
+                                    && !game.getAllPlanetsWithSleeperTokens().contains(planetID)) {
+                                buttons.add(
+                                        Buttons.green("putSleeperOnPlanet_" + planetID, planetID, MiscEmojis.Sleeper));
                             }
                         }
                     }
@@ -639,10 +642,8 @@ public class CryypterHelper {
     public static void solEnvoy(String buttonID, ButtonInteractionEvent event, Game game, Player player) {
         String[] fields = buttonID.split("_");
         List<Planet> planets = game.getTile(fields[1]).getPlanetUnitHolders();
-        for(Planet planet : planets)
-        {
-            if(player.hasPlanet(planet.getName()))
-            {
+        for(Planet planet : planets) {
+            if(player.hasPlanet(planet.getName())) {
                 PlanetService.refreshPlanet(player, planet.getName());
             }
         }
