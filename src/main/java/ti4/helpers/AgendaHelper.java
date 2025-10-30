@@ -3827,7 +3827,6 @@ public class AgendaHelper {
                         mainGameChannel, "Please choose your rider target.", game, player, riderButtons);
                 if ("Keleres Xxcha Hero".equalsIgnoreCase(riderName)) {
                     Leader playerLeader = player.getLeader("keleresheroodlynn").orElse(null);
-                    playerLeader = CryypterHelper.keleresHeroCheck(player, playerLeader);
                     if (playerLeader != null) {
                         String message = player.getRepresentation() + " played "
                                 + Helper.getLeaderFullRepresentation(playerLeader);

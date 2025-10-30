@@ -15,6 +15,7 @@ import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import org.apache.commons.lang3.math.NumberUtils;
 import ti4.buttons.Buttons;
 import ti4.commands.tokens.AddTokenCommand;
+import ti4.helpers.Units.UnitKey;
 import ti4.helpers.Units.UnitType;
 import ti4.image.Mapper;
 import ti4.listeners.annotations.ButtonHandler;
@@ -39,6 +40,7 @@ import ti4.service.leader.CommanderUnlockCheckService;
 import ti4.service.leader.ExhaustLeaderService;
 import ti4.service.leader.UnlockLeaderService;
 import ti4.service.unit.CheckUnitContainmentService;
+import ti4.service.unit.MoveUnitService;
 
 public class CryypterHelper {
     // Revised Politics SC
@@ -562,12 +564,15 @@ public class CryypterHelper {
                     String message = envoyPlayer.getRepresentationUnfogged()
                         + ", you have the Saar Envoy to resolve. This is not yet implemented in the bot, so you will need to resolve the effect manually.";
                     
-                    Helper.getTileWithShipsPlaceUnitButtons(player, game, "cruiser", "placeOneNDone_skipbuild")
-                    FoWHelper.getAdjacentTiles(game, pos1, player, false);
-
-
+                    List<Button> buttons = new ArrayList<>();
+                    List<Tile> tiles = ButtonHelper.getTilesWithShipsInTheSystem(envoyPlayer, game);
+                    for(Tile tile : tiles)
+                    {
+                        buttons.add(Buttons.green("saarEnvoyDestination_" + tile.getTileID(), tile.getRepresentationForButtons()));
+                    }
                     
-                    MessageHelper.sendMessageToChannel(channel, message);
+
+                    MessageHelper.sendMessageToChannelWithButtons(channel, message, buttons);
                 }
                 if (key.contains("solenvoy") && committedWinner.contains(envoyPlayer)) {
                     String message = envoyPlayer.getRepresentationUnfogged()
@@ -758,6 +763,66 @@ public class CryypterHelper {
                 break;
             }
         }
+        msg += ".";
+        MessageHelper.sendMessageToChannel(player.getCorrectChannel(), msg);
+        event.getMessage().delete().queue();
+    }
+
+    @ButtonHandler("saarEnvoyDestination_")
+    public static void saarEnvoyDestination(String buttonID, ButtonInteractionEvent event, Game game, Player player) {
+        List<Button> buttons = new ArrayList<>();
+        String[] fields = buttonID.split("_");
+        Tile destTile = game.getTile(fields[1]);
+        String message = " choose which adjacent system to move a ship from.";
+        Set<String> adjTilePoss = FoWHelper.getAdjacentTiles(game, destTile.getPosition(), player, false);
+        for(String tilePos : adjTilePoss)
+        {
+            Tile tile = game.getTileMap().get(tilePos);
+            if(FoWHelper.playerHasShipsInSystem(player, tile))
+            {
+                buttons.add(Buttons.green("saarEnvoySource_" + destTile.getTileID() + "_" + tile.getTileID(), tile.getRepresentationForButtons()));
+            }
+        }
+        MessageHelper.sendMessageToChannelWithButtons(player.getCorrectChannel(),
+            player.getRepresentationUnfogged() + message,
+            buttons);
+        event.getMessage().delete().queue();
+    }
+
+    @ButtonHandler("saarEnvoySource_")
+    public static void saarEnvoySource(String buttonID, ButtonInteractionEvent event, Game game, Player player) {
+        List<Button> buttons = new ArrayList<>();
+        String[] fields = buttonID.split("_");
+        Tile destTile = game.getTile(fields[1]);
+        Tile sourceTile = game.getTile(fields[2]);
+        String message = " choose which ship to move.";
+        UnitHolder unitHolder = sourceTile.getSpaceUnitHolder();
+        for (UnitKey unitKey : unitHolder.getUnitKeys()) {
+            if (player.unitBelongsToPlayer(unitKey)) {
+                buttons.add(Buttons.green("handleSaarEnvoy_" + destTile.getTileID() + "_" + sourceTile.getTileID() + "_" + unitKey.unitName(), 
+                unitKey.unitName(), 
+                unitKey.unitEmoji()));
+            }
+        }
+        MessageHelper.sendMessageToChannelWithButtons(player.getCorrectChannel(),
+            player.getRepresentationUnfogged() + message,
+            buttons);
+        event.getMessage().delete().queue();
+    }
+
+    @ButtonHandler("handleSaarEnvoy_")
+    public static void handleSaarEnvoy(String buttonID, ButtonInteractionEvent event, Game game, Player player) {
+        String[] fields = buttonID.split("_");
+        Tile destTile = game.getTile(fields[1]);
+        Tile sourceTile = game.getTile(fields[2]);
+        String unitKey = fields[3];
+        
+        String msg = player.getRepresentation() + " moved " + unitKey
+            + " from " + sourceTile.getRepresentationForButtons(game, player)
+            + " to " + destTile.getRepresentationForButtons(game, player);
+
+        MoveUnitService.moveUnits(event, sourceTile, game, player.getColor(), unitKey, destTile, "space");
+
         msg += ".";
         MessageHelper.sendMessageToChannel(player.getCorrectChannel(), msg);
         event.getMessage().delete().queue();
