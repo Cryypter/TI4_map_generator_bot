@@ -800,7 +800,7 @@ public class CryypterHelper {
                 buttons.add(Buttons.green(
                         "handleSaarEnvoy_" + destTile.getTileID() + "_" + sourceTile.getTileID() + "_"
                                 + unitKey.unitName(), 
-                        unitKey.unitName(), 
+                        unitKey.unitName(),
                         unitKey.unitEmoji()));
             }
         }
