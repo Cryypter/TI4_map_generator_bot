@@ -1868,7 +1868,7 @@ public class AgendaHelper {
                         finChecker + "autoresolve_manualcommittee", "Use Committee Formation", CardEmojis.Agenda));
             }
         }
-        afterButtons.addAll(CryypterHelper.addVotCAfterButtons(game));
+        CryypterHelper.addVotCAfterButtons(game, afterButtons);
         afterButtons.add(Buttons.blue("no_after", "No \"After\"s (for now)", MiscEmojis.NoAfters));
         afterButtons.add(Buttons.blue("no_after_persistent", "No \"After\"s (for this agenda)", MiscEmojis.NoAfters));
         return afterButtons;
@@ -2388,7 +2388,7 @@ public class AgendaHelper {
                         }
                     }
                 }
-                CryypterHelper.handleWinningRiders(game, winner, event);
+                CryypterHelper.handleWinningRiders(game, winner);
             }
         }
         return winningRs;

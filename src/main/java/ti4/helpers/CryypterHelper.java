@@ -14,7 +14,6 @@ import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import org.apache.commons.lang3.math.NumberUtils;
 import ti4.buttons.Buttons;
-import ti4.commands.tokens.AddTokenCommand;
 import ti4.helpers.Units.UnitKey;
 import ti4.helpers.Units.UnitType;
 import ti4.image.Mapper;
@@ -311,11 +310,11 @@ public class CryypterHelper {
             if (!leader.isLocked() && leaderModel.getAbilityWindow() == "After an agenda is revealed:") {
                 names.add(leaderModel.getNameRepresentation());
             }
+        }
         return names;
     }
 
     public static List<Button> addVotCAfterButtons(Game game, List<Button> afterButtons) {
-        List<Button> afterButtons = new ArrayList<>(); 
         if (game.isVotcMode())
         {
             for (Player player : game.getPlayers().values()) {
@@ -447,7 +446,6 @@ public class CryypterHelper {
                     String message = envoyPlayer.getRepresentationUnfogged()
                             + ", you have the Creuss Envoy to resolve. Choose the system you wish to place a Creuss wormhole token in.";
 
-                    List<Planet> eligiblePlanets = new ArrayList<>();
                     List<Button> buttons = new ArrayList<>();
 
                     for (Player counterPlayer : counterWinners) {
