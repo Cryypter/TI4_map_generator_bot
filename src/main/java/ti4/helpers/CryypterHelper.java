@@ -513,8 +513,9 @@ public class CryypterHelper {
 
                     List<Button> buttons = new ArrayList<>();
                     for (Player counterPlayer : counterLosers) {
-                        if(!envoyPlayer.getMahactCC().contains(counterPlayer.getColor())){
-                            buttons.add(Buttons.blue("mahactEnvoy_" + counterPlayer.getColor(), counterPlayer.getRepresentation()));
+                        if(!envoyPlayer.getMahactCC().contains(counterPlayer.getColor())) {
+                            buttons.add(Buttons.blue(
+                                    "mahactEnvoy_" + counterPlayer.getColor(), counterPlayer.getRepresentation()));
                         }
                     }
                     MessageHelper.sendMessageToChannel(channel, message);
@@ -560,22 +561,20 @@ public class CryypterHelper {
                 }
                 if (key.contains("saarenvoy") && committedWinner.contains(envoyPlayer)) {
                     String message = envoyPlayer.getRepresentationUnfogged()
-                        + ", you have the Saar Envoy to resolve. This is not yet implemented in the bot, so you will need to resolve the effect manually.";
-                    
+                            + ", you have the Saar Envoy to resolve. This is not yet implemented in the bot, so you will need to resolve the effect manually.";
+
                     List<Button> buttons = new ArrayList<>();
                     List<Tile> tiles = ButtonHelper.getTilesWithShipsInTheSystem(envoyPlayer, game);
-                    for(Tile tile : tiles)
-                    {
+                    for(Tile tile : tiles) {
                         buttons.add(Buttons.green("saarEnvoyDestination_" + tile.getTileID(), tile.getRepresentationForButtons()));
                     }
-                    
 
                     MessageHelper.sendMessageToChannelWithButtons(channel, message, buttons);
                 }
                 if (key.contains("solenvoy") && committedWinner.contains(envoyPlayer)) {
                     String message = envoyPlayer.getRepresentationUnfogged()
-                        + ", you have the Sol Envoy to resolve. Choose which system to ready your planets in.";
-                    
+                            + ", you have the Sol Envoy to resolve. Choose which system to ready your planets in.";
+
                     List<Button> buttons = new ArrayList<>();
                     List<Tile> eligibleTiles = new ArrayList<>();
                     List<String> planets = envoyPlayer.getExhaustedPlanets();
@@ -584,16 +583,17 @@ public class CryypterHelper {
 
                         if (!eligibleTiles.contains(tile)) {
                             eligibleTiles.add(tile);
-                            buttons.add(Buttons.green("solEnvoy_" + tile.getTileID(), tile.getRepresentationForButtons()));
+                            buttons.add(
+                                    Buttons.green("solEnvoy_" + tile.getTileID(), tile.getRepresentationForButtons()));
                         }
                     }
-                    
+
                     MessageHelper.sendMessageToChannelWithButtons(channel, message, buttons);
                 }
                 if (key.contains("titansenvoy") && committedLoser.contains(envoyPlayer)) {
                     String message = envoyPlayer.getRepresentationUnfogged()
-                        + ", you have the Titans Envoy to resolve. Choose the planet you wish to place a sleeper token on.";
-                    
+                            + ", you have the Titans Envoy to resolve. Choose the planet you wish to place a sleeper token on.";
+
                     List<Button> buttons = new ArrayList<>();
 
                     for (Player counterPlayer : counterWinners) {
